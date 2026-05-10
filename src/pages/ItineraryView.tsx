@@ -1,0 +1,1499 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  MapPin, 
+  AlertTriangle, 
+  Download, 
+  RefreshCw,
+  Info,
+  Map as MapIcon,
+  CheckCircle2,
+  Circle,
+  Edit3,
+  Check,
+  X,
+  Heart,
+  Plane,
+  Hotel,
+  Ticket,
+  User,
+  ChevronRight,
+  Calendar,
+  Clock,
+  DollarSign,
+  PieChart,
+  Utensils,
+  Crown,
+  Sparkles,
+  Star,
+  Lightbulb,
+  CloudRain,
+  TrendingDown,
+  ShieldAlert,
+  ChevronDown,
+  ChevronUp,
+  Phone,
+  MessageCircle
+} from 'lucide-react';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  Cell 
+} from 'recharts';
+import { Itinerary, Activity } from '@/src/types';
+import confetti from 'canvas-confetti';
+import { cn } from '@/src/lib/utils';
+import MapView from '@/src/components/MapView';
+
+interface ItineraryViewProps {
+  itinerary: Itinerary;
+  onRestart: () => void;
+}
+
+export default function ItineraryView({ itinerary: initialItinerary, onRestart }: ItineraryViewProps) {
+  const { t } = useTranslation();
+  const [itinerary, setItinerary] = useState<Itinerary>(initialItinerary);
+  const [showMap, setShowMap] = useState(false);
+  const [completedActivities, setCompletedActivities] = useState<Set<string>>(new Set());
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [bookingForm, setBookingForm] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    address: '',
+    notes: '',
+    guests: '2'
+  });
+
+  // Rating State
+  const [overallRating, setOverallRating] = useState<number>(() => {
+    const key = `rating_overall_${itinerary.id || itinerary.destination}`;
+    return Number(localStorage.getItem(key)) || 0;
+  });
+
+  const [activityRatings, setActivityRatings] = useState<Record<string, number>>(() => {
+    const key = `rating_activities_${itinerary.id || itinerary.destination}`;
+    try {
+      return JSON.parse(localStorage.getItem(key) || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  const [insightsExpanded, setInsightsExpanded] = useState(true);
+  const [alertsExpanded, setAlertsExpanded] = useState(true);
+
+  const handleRateOverall = (rating: number) => {
+    setOverallRating(rating);
+    localStorage.setItem(`rating_overall_${itinerary.id || itinerary.destination}`, rating.toString());
+  };
+
+  const handleRateActivity = (dayIdx: number, actIdx: number, rating: number) => {
+    const id = `${dayIdx}-${actIdx}`;
+    const newRatings = { ...activityRatings, [id]: rating };
+    setActivityRatings(newRatings);
+    localStorage.setItem(`rating_activities_${itinerary.id || itinerary.destination}`, JSON.stringify(newRatings));
+  };
+
+  const StarRating = ({ 
+    rating, 
+    onRate, 
+    size = 16, 
+    className = "" 
+  }: { 
+    rating: number; 
+    onRate: (rating: number) => void; 
+    size?: number;
+    className?: string;
+  }) => (
+    <div className={cn("flex items-center gap-1", className)}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          onClick={(e) => {
+            e.stopPropagation();
+            onRate(star);
+          }}
+          className="transition-transform hover:scale-125 focus:outline-none"
+        >
+          <Star
+            size={size}
+            className={cn(
+              "transition-colors",
+              star <= rating 
+                ? "fill-luxury-espresso text-luxury-espresso" 
+                : "text-luxury-cacao/20 hover:text-luxury-cacao/40"
+            )}
+          />
+        </button>
+      ))}
+    </div>
+  );
+
+  const isPhiMode = itinerary.id === 'phi-ultimate';
+
+  // Budget State
+  const [expenses, setExpenses] = useState({
+    flights: 0,
+    accommodation: 0,
+    activities: 0,
+    food: 0
+  });
+
+  // Estimates based on travel style
+  const budgetData = useMemo(() => {
+    if (isPhiMode) {
+      return [
+        { category: 'Phi', estimated: 1000, actual: 1000, color: '#3B2A25' },
+        { category: 'Phi', estimated: 1000, actual: 1000, color: '#5A3E36' },
+        { category: 'Phi', estimated: 1000, actual: 1000, color: '#D8CBBE' },
+        { category: 'Phi', estimated: 1000, actual: 1000, color: '#C4B5A6' },
+      ];
+    }
+    const days = itinerary.duration || itinerary.days.length;
+    const style = itinerary.travelStyle?.toLowerCase() || 'luxury';
+    
+    let multipliers = { flights: 800, accommodation: 200, activities: 100, food: 80 }; // Default/Luxury
+    
+    if (style.includes('backpack')) multipliers = { flights: 500, accommodation: 50, activities: 30, food: 20 };
+    if (style.includes('adventure')) multipliers = { flights: 1000, accommodation: 150, activities: 200, food: 60 };
+    if (style.includes('family')) multipliers = { flights: 1200, accommodation: 300, activities: 150, food: 120 };
+
+    return [
+      { category: t('itinerary.bookingFlights'), estimated: multipliers.flights, actual: expenses.flights, color: '#3B2A25' },
+      { category: t('itinerary.bookingHotels'), estimated: multipliers.accommodation * days, actual: expenses.accommodation, color: '#5A3E36' },
+      { category: t('itinerary.bookingActivities'), estimated: multipliers.activities * days, actual: expenses.activities, color: '#D8CBBE' },
+      { category: t('itinerary.bookingDining') || 'Dining', estimated: multipliers.food * days, actual: expenses.food, color: '#C4B5A6' },
+    ];
+  }, [expenses, itinerary.duration, itinerary.days.length, itinerary.travelStyle, isPhiMode, t]);
+
+  const totalEstimated = budgetData.reduce((acc, curr) => acc + curr.estimated, 0);
+  const totalActual = budgetData.reduce((acc, curr) => acc + curr.actual, 0);
+
+  useEffect(() => {
+    if (showBookingModal) {
+      document.body.style.overflow = 'hidden';
+      const handleEsc = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setShowBookingModal(false);
+          setIsSuccess(false);
+        }
+      };
+      window.addEventListener('keydown', handleEsc);
+      return () => {
+        document.body.style.overflow = 'unset';
+        window.removeEventListener('keydown', handleEsc);
+      };
+    }
+  }, [showBookingModal]);
+
+  const handleBookingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    
+    // Simulate API call
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setIsSuccess(true);
+      
+      // Save locally
+      const bookings = JSON.parse(localStorage.getItem('demo_bookings') || '[]');
+      bookings.push({
+        ...bookingForm,
+        destination: itinerary.destination,
+        date: new Date().toISOString()
+      });
+      localStorage.setItem('demo_bookings', JSON.stringify(bookings));
+
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#5A3E36', '#D8CBBE']
+      });
+
+      // Automatically close success modal after 5 seconds if not closed manually
+      setTimeout(() => {
+        // Only close if success state is still showing
+        // Use a functional update or ref if needed, but simple closure is fine for this demo
+      }, 5000);
+    }, 2000);
+  };
+
+  const [startDate, setStartDate] = useState<string | null>(() => {
+    return localStorage.getItem(`start_date_${initialItinerary.destination}_${initialItinerary.duration}`);
+  });
+
+  const progress = useMemo(() => {
+    if (!startDate) return { currentDay: 0, percentage: 0, isActive: false };
+    const start = new Date(startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    start.setHours(0, 0, 0, 0);
+    
+    // Calculate difference in days
+    const diffTime = today.getTime() - start.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    
+    const isPast = diffDays > itinerary.duration;
+    const isFuture = diffDays < 1;
+    
+    return {
+      currentDay: Math.min(Math.max(diffDays, 0), itinerary.duration),
+      percentage: Math.min(Math.max((diffDays / itinerary.duration) * 100, 0), 100),
+      isActive: !isPast && !isFuture,
+      isFinished: isPast,
+      isUpcoming: isFuture
+    };
+  }, [startDate, itinerary.duration, initialItinerary.destination]);
+
+  const handleSetStartDate = (date: string) => {
+    setStartDate(date);
+    localStorage.setItem(`start_date_${initialItinerary.destination}_${initialItinerary.duration}`, date);
+  };
+
+  useEffect(() => {
+    // Check if current trip is in favorites
+    const saved = localStorage.getItem('saved_itineraries');
+    if (saved) {
+      const favorites = JSON.parse(saved);
+      const exists = favorites.some((fav: Itinerary) => 
+        (fav.id && itinerary.id && fav.id === itinerary.id) ||
+        (fav.destination === itinerary.destination && fav.summary === itinerary.summary)
+      );
+      setIsFavorite(exists);
+    }
+  }, [itinerary]);
+
+  const toggleFavorite = () => {
+    const saved = localStorage.getItem('saved_itineraries');
+    let favorites = saved ? JSON.parse(saved) : [];
+    
+    if (isFavorite) {
+      favorites = favorites.filter((fav: Itinerary) => 
+        !((fav.id && itinerary.id && fav.id === itinerary.id) ||
+          (fav.destination === itinerary.destination && fav.summary === itinerary.summary))
+      );
+      setIsFavorite(false);
+    } else {
+      favorites.push(itinerary);
+      setIsFavorite(true);
+      // Small celebratory burst when saving
+      confetti({
+        particleCount: 40,
+        spread: 40,
+        origin: { y: 0.8 },
+        colors: ['#5A3E36', '#D8CBBE']
+      });
+    }
+    
+    localStorage.setItem('saved_itineraries', JSON.stringify(favorites));
+  };
+
+  const [editForm, setEditForm] = useState<{ activity: string; description: string; location: string }>({
+    activity: '',
+    description: '',
+    location: ''
+  });
+
+  const toggleActivity = (dayIdx: number, actIdx: number) => {
+    const id = `${dayIdx}-${actIdx}`;
+    setCompletedActivities(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const startEditing = (dayIdx: number, actIdx: number, activity: Activity) => {
+    setEditingId(`${dayIdx}-${actIdx}`);
+    setEditForm({
+      activity: activity.activity,
+      description: activity.description,
+      location: activity.location || ''
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+  };
+
+  const saveEditing = (dayIdx: number, actIdx: number) => {
+    const nextItinerary = { ...itinerary };
+    const nextDays = [...nextItinerary.days];
+    const nextActivities = [...nextDays[dayIdx].activities];
+    
+    nextActivities[actIdx] = {
+      ...nextActivities[actIdx],
+      activity: editForm.activity,
+      description: editForm.description,
+      location: editForm.location
+    };
+    
+    nextDays[dayIdx] = { ...nextDays[dayIdx], activities: nextActivities };
+    nextItinerary.days = nextDays;
+    
+    setItinerary(nextItinerary);
+    setEditingId(null);
+  };
+
+  const allActivities = useMemo(() => {
+    const acts: { activity: string; description: string; location?: string }[] = [];
+    itinerary.days.forEach(day => {
+      day.activities.forEach(activity => {
+        acts.push(activity);
+      });
+    });
+    return acts.slice(0, 8); // Display first 8 points for clarity
+  }, [itinerary]);
+
+  const allLocations = useMemo(() => {
+    const locs: string[] = [];
+    itinerary.days.forEach(day => {
+      day.activities.forEach(activity => {
+        if (activity.location) locs.push(`${activity.location}, ${itinerary.destination}`);
+        else locs.push(`${activity.activity}, ${itinerary.destination}`);
+      });
+    });
+    return Array.from(new Set(locs)).slice(0, 8);
+  }, [itinerary]);
+
+  useEffect(() => {
+    confetti({
+      particleCount: 150,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#F5F1EB', '#D8CBBE', '#5A3E36', '#3B2A25']
+    });
+  }, []);
+
+  const handleDownload = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(itinerary, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href",     dataStr);
+    downloadAnchorNode.setAttribute("download", `itinerary-${itinerary.destination}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  return (
+    <div className={cn("max-w-7xl mx-auto px-8 py-40 space-y-20", isPhiMode && "phi-theme")}>
+      {isPhiMode && (
+        <style dangerouslySetInnerHTML={{ __html: `
+          .phi-theme .glass-luxury {
+            background: linear-gradient(135deg, rgba(216, 203, 190, 0.4) 0%, rgba(196, 181, 166, 0.4) 100%);
+            box-shadow: 0 0 40px rgba(165, 124, 0, 0.2);
+            border-color: rgba(165, 124, 0, 0.3);
+          }
+          .phi-theme h1 {
+            background: linear-gradient(90deg, #3B2A25 0%, #D8CBBE 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+          }
+        `}} />
+      )}
+      {/* Header Overview */}
+      <div className={cn("bg-luxury-ivory/40 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-[60px] p-10 md:p-20 relative overflow-hidden glass-luxury shadow-xl shadow-luxury-beige/10 transition-colors duration-500", isPhiMode && "ring-4 ring-luxury-beige/40")}>
+        <div className="absolute top-0 right-0 w-1/2 h-full opacity-5 pointer-events-none skew-x-12 translate-x-24">
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+            <path fill={isPhiMode ? "#A57C00" : "#5A3E36"} d="M47.7,-62.7C61.4,-54.3,71.1,-39.1,76.5,-22.8C81.9,-6.5,83.1,10.9,76.9,26C70.7,41.1,57.1,53.9,41.5,63.1C25.9,72.4,8.3,78,-9.5,77.2C-27.3,76.4,-45.3,69.2,-58.5,56.5C-71.7,43.8,-80.1,25.6,-80.4,7.8C-80.7,-10.1,-72.8,-27.6,-61,-42.2C-49.2,-56.8,-33.5,-68.5,-17.1,-72.1C-0.7,-75.7,14, -58.3,47.7,-62.7Z" transform="translate(100 100)" />
+          </svg>
+        </div>
+        
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-12">
+          <div className="space-y-8">
+            <div className="flex items-center gap-4 text-luxury-cacao font-bold uppercase tracking-[0.4em] text-[10px]">
+              <div className="w-1.5 h-1.5 bg-luxury-cacao rounded-full opacity-50" />
+              <span>{isPhiMode ? "Huyền thoại" : t('itinerary.archive')}</span>
+            </div>
+            <h1 className="text-7xl md:text-9xl font-serif font-bold text-luxury-espresso leading-[0.85] tracking-tighter">
+              {itinerary.destination}
+              {isPhiMode && <Crown size={64} className="inline-block ml-4 text-luxury-espresso align-top animate-bounce" />}
+            </h1>
+            <p className="text-2xl text-luxury-espresso/60 max-w-2xl leading-relaxed italic font-serif">
+              "{itinerary.summary}"
+              {isPhiMode && <Sparkles size={24} className="inline-block ml-2 text-luxury-beige animate-pulse" />}
+            </p>
+
+            <div className="flex items-center gap-6 pt-4">
+              <span className="text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.3em] opacity-40">Rating</span>
+              <StarRating rating={overallRating} onRate={handleRateOverall} size={24} />
+              {overallRating > 0 && (
+                <span className="text-sm font-serif font-bold text-luxury-espresso italic">{overallRating}/5</span>
+              )}
+            </div>
+            
+            <div className="flex flex-wrap gap-12 pt-8">
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.3em] opacity-40">{isPhiMode ? "Phi" : t('itinerary.duration')}</span>
+                <span className="text-2xl font-serif font-bold text-luxury-espresso">{isPhiMode ? "Phi" : `${itinerary.duration} ${t('itinerary.days')}`}</span>
+              </div>
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.3em] opacity-40">{isPhiMode ? "Phi" : t('itinerary.style')}</span>
+                <span className="text-2xl font-serif font-bold text-luxury-espresso capitalize italic">{isPhiMode ? "Phi" : itinerary.travelStyle}</span>
+              </div>
+              {itinerary.totalEstimatedCost && (
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.3em] opacity-40">{isPhiMode ? "Phi" : t('itinerary.provision')}</span>
+                  <span className="text-2xl font-serif font-bold text-luxury-cacao">{itinerary.totalEstimatedCost}</span>
+                </div>
+              )}
+              <div className="flex flex-col gap-2 min-w-[200px]">
+                <span className="text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.3em] opacity-40">{isPhiMode ? "Phi" : t('itinerary.progressHeader')}</span>
+                <div className="flex flex-col gap-3">
+                  {startDate ? (
+                    <>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm font-bold text-luxury-espresso font-serif uppercase tracking-widest">
+                          {t('itinerary.dayXofY', { current: progress.currentDay, total: itinerary.duration })}
+                        </span>
+                        <span className={cn(
+                          "text-[9px] font-bold uppercase tracking-[0.2em] px-2 py-0.5 rounded-md",
+                          progress.isActive ? "bg-green-100 text-green-700" : 
+                          progress.isFinished ? "bg-luxury-beige text-luxury-espresso" : "bg-blue-100 text-blue-700"
+                        )}>
+                          {progress.isActive ? t('itinerary.tripActive') : 
+                           progress.isFinished ? t('itinerary.tripFinished') : t('itinerary.tripUpcoming')}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-luxury-beige/30 rounded-full overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${progress.percentage}%` }}
+                          transition={{ duration: 1.5, ease: "easeOut" }}
+                          className="h-full bg-luxury-espresso"
+                        />
+                      </div>
+                      <button 
+                        onClick={() => handleSetStartDate('')}
+                        className="text-[8px] font-bold uppercase tracking-widest text-luxury-cacao/40 hover:text-luxury-espresso transition-colors text-left"
+                      >
+                        {t('itinerary.changeDates')}
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <Calendar size={14} className="text-luxury-cacao/40" />
+                      <input 
+                        type="date"
+                        onChange={(e) => handleSetStartDate(e.target.value)}
+                        className="bg-transparent border-none text-xs font-bold text-luxury-espresso uppercase tracking-widest focus:ring-0 cursor-pointer p-0"
+                        title={t('itinerary.setStartDate')}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+            <button 
+              onClick={() => setShowBookingModal(true)}
+              disabled={isSubmitting}
+              className="px-6 md:px-10 py-4 md:py-5 bg-luxury-espresso text-luxury-ivory rounded-full font-bold text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:bg-luxury-espresso/90 transition-all shadow-xl shadow-luxury-espresso/20 ring-4 ring-luxury-espresso/10 disabled:opacity-70"
+            >
+              <AnimatePresence mode="wait">
+                {isSubmitting ? (
+                  <motion.div 
+                    key="submitting"
+                    initial={{ opacity: 0 }} 
+                    animate={{ opacity: 1 }} 
+                    exit={{ opacity: 0 }}
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Processing...</span>
+                  </motion.div>
+                ) : (
+                  <motion.div 
+                    key="book"
+                    initial={{ opacity: 0 }} 
+                    animate={{ opacity: 1 }} 
+                    exit={{ opacity: 0 }}
+                    className="flex items-center gap-2"
+                  >
+                    <Ticket size={16} />
+                    <span>{isPhiMode ? "Phi" : t('itinerary.bookNow')}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </button>
+            <div className="flex gap-4">
+              <button 
+                onClick={toggleFavorite}
+                className={cn(
+                  "flex-1 md:flex-none p-4 md:p-5 rounded-full font-bold text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 transition-all shadow-xl group border transition-colors",
+                  isFavorite 
+                    ? "bg-luxury-beige text-luxury-espresso border-luxury-espresso" 
+                    : "bg-luxury-ivory border-luxury-beige text-luxury-espresso hover:bg-luxury-bg dark:bg-luxury-ivory/20"
+                )}
+                title={isFavorite ? t('itinerary.removeFromFav') : t('itinerary.saveToFav')}
+              >
+                <Heart size={16} className={cn("transition-transform duration-300 group-hover:scale-125", isFavorite && "fill-luxury-espresso")} />
+                <span className="inline">{isFavorite ? (isPhiMode ? "Phi" : t('savedBtnActive')) : (isPhiMode ? "Phi" : t('savedBtn'))}</span>
+              </button>
+              <button 
+                onClick={handleDownload}
+                className="hidden sm:flex p-4 md:p-5 bg-luxury-ivory dark:bg-luxury-ivory/20 border border-luxury-beige text-luxury-espresso rounded-full font-bold text-[10px] uppercase tracking-[0.3em] items-center gap-3 hover:bg-luxury-bg transition-all"
+              >
+                <Download size={16} />
+                <span className="hidden md:inline">{isPhiMode ? "Phi" : t('itinerary.export')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Booking Modal */}
+      <AnimatePresence>
+        {showBookingModal && (
+          <div 
+            className="fixed inset-0 z-[999] flex items-center justify-center p-4 md:p-8 bg-luxury-espresso/60 backdrop-blur-xl transition-all duration-500 overflow-y-auto"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowBookingModal(false);
+                setIsSuccess(false);
+              }
+            }}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 30 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="bg-luxury-bg w-full max-w-2xl rounded-[40px] md:rounded-[56px] overflow-hidden shadow-[0_32px_64px_-16px_rgba(59,42,37,0.3)] relative border border-luxury-beige/30 my-auto"
+            >
+              <button 
+                onClick={() => { setShowBookingModal(false); setIsSuccess(false); }}
+                className="absolute top-6 right-6 md:top-10 md:right-10 w-10 h-10 md:w-12 md:h-12 rounded-full bg-luxury-ivory/80 dark:bg-luxury-ivory/20 border border-luxury-beige/30 flex items-center justify-center text-luxury-espresso hover:bg-luxury-espresso hover:text-luxury-ivory transition-all z-20 group"
+              >
+                <X size={20} className="group-hover:rotate-90 transition-transform duration-300" />
+              </button>
+
+              <div className="p-8 md:p-20 space-y-8 md:space-y-12">
+                {isSuccess ? (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center space-y-8 md:space-y-10 py-6 md:py-10"
+                  >
+                    <div className="w-20 h-20 md:w-24 md:h-24 bg-green-500/10 rounded-3xl flex items-center justify-center mx-auto mb-8 ring-8 ring-green-500/5 rotate-3">
+                      <CheckCircle2 size={40} className="text-green-600" />
+                    </div>
+                    <div className="space-y-4">
+                      <h2 className="text-3xl md:text-5xl font-serif font-bold text-luxury-espresso">{isPhiMode ? "Phi" : t('itinerary.bookingSuccessTitle')}</h2>
+                      <p className="text-luxury-espresso/60 text-base md:text-lg leading-relaxed max-w-sm mx-auto">{isPhiMode ? "Phi" : t('itinerary.bookingSuccessMsg')}</p>
+                    </div>
+                    <div className="pt-6 md:pt-10">
+                      <button 
+                        onClick={() => { setShowBookingModal(false); setIsSuccess(false); }}
+                        className="w-full bg-luxury-espresso text-luxury-ivory py-5 md:py-6 rounded-2xl font-bold text-[10px] md:text-xs uppercase tracking-[0.4em] hover:bg-luxury-espresso/90 transition-all shadow-xl shadow-luxury-espresso/20"
+                      >
+                        {isPhiMode ? "Phi" : t('itinerary.bookingClose')}
+                      </button>
+                      <p className="text-[8px] md:text-[9px] text-luxury-cacao/40 uppercase tracking-widest mt-8 font-bold">{isPhiMode ? "Phi" : t('itinerary.bookingDemoNote')}</p>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 text-luxury-beige">
+                        <Sparkles size={16} />
+                        <span className="text-[10px] font-bold uppercase tracking-[0.3em]">{t('itinerary.bookNow')}</span>
+                      </div>
+                      <h2 className="text-3xl md:text-5xl font-serif font-bold text-luxury-espresso">{isPhiMode ? "Phi" : t('itinerary.bookingModalHeader')}</h2>
+                      <p className="text-luxury-espresso/60 text-sm md:text-lg leading-relaxed">{isPhiMode ? "Phi" : t('itinerary.bookingModalSub')}</p>
+                    </div>
+
+                    <form onSubmit={handleBookingSubmit} className="grid md:grid-cols-2 gap-6 md:gap-8 pt-2 md:pt-4">
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingName')}</label>
+                        <input 
+                          required
+                          value={bookingForm.name}
+                          onChange={e => setBookingForm(prev => ({ ...prev, name: e.target.value }))}
+                          className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all text-luxury-espresso placeholder:text-luxury-cacao/40"
+                          placeholder={isPhiMode ? "Phi" : t('itinerary.placeholder_name')}
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingPhone')}</label>
+                        <input 
+                          required
+                          value={bookingForm.phone}
+                          onChange={e => setBookingForm(prev => ({ ...prev, phone: e.target.value }))}
+                          className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all text-luxury-espresso placeholder:text-luxury-cacao/40"
+                          placeholder={isPhiMode ? "Phi" : t('itinerary.placeholder_phone')}
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingEmail')}</label>
+                        <input 
+                          required
+                          type="email"
+                          value={bookingForm.email}
+                          onChange={e => setBookingForm(prev => ({ ...prev, email: e.target.value }))}
+                          className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all text-luxury-espresso placeholder:text-luxury-cacao/40"
+                          placeholder={isPhiMode ? "Phi" : t('itinerary.placeholder_email')}
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingGuests')}</label>
+                        <div className="relative">
+                          <select 
+                            value={bookingForm.guests}
+                            onChange={e => setBookingForm(prev => ({ ...prev, guests: e.target.value }))}
+                            className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all appearance-none text-luxury-espresso"
+                          >
+                            {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
+                              <option key={n} value={n}>{isPhiMode ? "Phi" : `${n} ${t('itinerary.guests', { count: n })}`}</option>
+                            ))}
+                          </select>
+                          <ChevronDown size={14} className="absolute right-6 top-1/2 -translate-y-1/2 text-luxury-cacao opacity-40 pointer-events-none" />
+                        </div>
+                      </div>
+                      <div className="space-y-3 md:col-span-2">
+                        <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingAddress')}</label>
+                        <input 
+                          value={bookingForm.address}
+                          onChange={e => setBookingForm(prev => ({ ...prev, address: e.target.value }))}
+                          className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all text-luxury-espresso"
+                          placeholder="Ex: 123 Luxury Ave, District 1, HCMC"
+                        />
+                      </div>
+                      <div className="space-y-3 md:col-span-2">
+                        <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingNotes')}</label>
+                        <textarea 
+                          value={bookingForm.notes}
+                          onChange={e => setBookingForm(prev => ({ ...prev, notes: e.target.value }))}
+                          className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all h-24 resize-none text-luxury-espresso"
+                          placeholder={t('itinerary.placeholder_notes') || "Any special requests (dietary, anniversary, etc.)?"}
+                        />
+                      </div>
+                      <div className="md:col-span-2 pt-6">
+                        <button 
+                          disabled={isSubmitting}
+                          className="w-full relative bg-luxury-espresso text-luxury-ivory py-5 md:py-6 rounded-2xl font-bold text-[10px] md:text-xs uppercase tracking-[0.4em] overflow-hidden group hover:bg-luxury-espresso/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-xl shadow-luxury-espresso/20"
+                        >
+                          <AnimatePresence mode="wait">
+                            {isSubmitting ? (
+                              <motion.div 
+                                key="submitting"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="flex items-center justify-center gap-4"
+                              >
+                                <RefreshCw size={16} className="animate-spin" />
+                                <span>{isPhiMode ? "Phi" : t('itinerary.securingSelection')}</span>
+                              </motion.div>
+                            ) : (
+                              <motion.div 
+                                key="idle"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="flex items-center justify-center gap-2"
+                              >
+                                <Ticket size={16} />
+                                <span>{isPhiMode ? "Phi" : t('itinerary.bookingConfirm')}</span>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                          <div className="absolute inset-0 bg-white/5 skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                        </button>
+                        <p className="text-center text-[8px] md:text-[9px] text-luxury-cacao/40 uppercase tracking-[0.2em] mt-8 font-bold">
+                          {isPhiMode ? "Phi" : t('itinerary.secureVerification')}
+                        </p>
+                      </div>
+                    </form>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <div className="grid lg:grid-cols-12 gap-12">
+        <div className="lg:col-span-8 space-y-24">
+          {/* Timeline */}
+          <div className="space-y-16">
+            <div className="flex items-center justify-between border-b border-luxury-beige/30 pb-10">
+              <h2 className="text-5xl font-serif font-bold text-luxury-espresso">{isPhiMode ? "Phi" : t('itinerary.timeline')}</h2>
+              <span className="text-[10px] font-bold text-luxury-cacao/40 uppercase tracking-[0.4em]">{isPhiMode ? "Phi" : t('itinerary.optimized')}</span>
+            </div>
+
+            <div className="space-y-32 relative">
+              <div className="absolute left-[39px] top-6 bottom-6 w-px bg-luxury-beige/30 -z-10" />
+              
+              {itinerary.days.map((day, dIdx) => {
+                const isToday = progress.isActive && progress.currentDay === day.day;
+                
+                return (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    key={day.day} 
+                    className="space-y-16"
+                  >
+                    <div className="flex items-center gap-16">
+                      <div className={cn(
+                        "w-20 h-20 rounded-[28px] flex flex-col items-center justify-center flex-shrink-0 shadow-2xl border-[6px] border-luxury-ivory z-20 relative transition-all duration-700",
+                        isToday ? "bg-luxury-espresso text-luxury-ivory scale-110 ring-4 ring-luxury-beige/30" : "bg-luxury-ivory text-luxury-espresso shadow-luxury-beige/20"
+                      )}>
+                        {isToday && (
+                          <div className="absolute -top-3 bg-green-600 text-white text-[7px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse">
+                            {t('itinerary.tripActive')}
+                          </div>
+                        )}
+                        <span className="text-[8px] font-bold uppercase tracking-tighter opacity-70">{t('itinerary.day')}</span>
+                        <span className="text-3xl font-serif font-bold leading-none">{day.day}</span>
+                      </div>
+                      <div className="flex-1 h-px bg-luxury-beige/30" />
+                    </div>
+
+                  <div className="pl-6 md:pl-28 space-y-20">
+                    {day.activities.map((act, aIdx) => {
+                      const id = `${dIdx}-${aIdx}`;
+                      const isCompleted = completedActivities.has(id);
+                      const isEditing = editingId === id;
+
+                      return (
+                        <div 
+                          key={aIdx} 
+                          id={`activity-${dIdx}-${aIdx}`}
+                          className={cn(
+                            "flex gap-12 group transition-all duration-500 rounded-3xl p-4 -m-4",
+                            highlightedId === id && "bg-luxury-beige/20 ring-2 ring-luxury-espresso/10"
+                          )}
+                        >
+                          <div className="w-24 pt-2 flex-shrink-0 text-right flex flex-col items-end gap-4">
+                            <span className="text-xs font-mono font-bold text-luxury-cacao/40 group-hover:text-luxury-espresso transition-colors">{act.time}</span>
+                            <button 
+                              onClick={() => toggleActivity(dIdx, aIdx)}
+                              className={cn(
+                                "p-2 rounded-full transition-all duration-500",
+                                isCompleted ? "bg-luxury-espresso text-luxury-ivory" : "bg-luxury-bg text-luxury-cacao/20 hover:text-luxury-espresso"
+                              )}
+                            >
+                              {isCompleted ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+                            </button>
+                          </div>
+                          
+                          <div className={cn(
+                            "flex-1 space-y-4 pb-12 border-b border-luxury-beige/20 group-last:border-none transition-all duration-700",
+                            isCompleted && !isEditing && "opacity-40 grayscale-[0.5]"
+                          )}>
+                            {isEditing ? (
+                              <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="space-y-6 bg-white/60 p-8 rounded-3xl border border-luxury-beige/30"
+                              >                                <div className="space-y-2">
+                                  <label className="text-[10px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">{t('itinerary.activityName')}</label>
+                                  <input 
+                                    value={editForm.activity}
+                                    onChange={e => setEditForm(prev => ({ ...prev, activity: e.target.value }))}
+                                    className="w-full bg-luxury-ivory/80 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-xl px-4 py-3 text-lg font-serif font-bold text-luxury-espresso focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">{t('setup.step1.daysLabel') || 'Description'}</label>
+                                  <textarea 
+                                    value={editForm.description}
+                                    onChange={e => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                                    className="w-full bg-luxury-ivory/80 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-xl px-4 py-3 text-sm text-luxury-espresso/80 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">{t('itinerary.spatialIndex') || 'Location'}</label>
+                                  <input 
+                                    value={editForm.location}
+                                    onChange={e => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                                    className="w-full bg-luxury-ivory/80 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-xl px-4 py-3 text-sm text-luxury-espresso/70 focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all"
+                                    placeholder={t('itinerary.location_placeholder') || 'Add location details...'}
+                                  />
+                                </div>
+                                <div className="flex gap-4 pt-4">
+                                  <button 
+                                    onClick={() => saveEditing(dIdx, aIdx)}
+                                    className="flex-1 bg-luxury-espresso text-luxury-ivory py-4 rounded-xl flex items-center justify-center gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-luxury-espresso/90 transition-all shadow-xl shadow-luxury-espresso/10"
+                                  >
+                                    <Check size={14} />
+                                    <span>{t('itinerary.saveCuration')}</span>
+                                  </button>
+                                  <button 
+                                    onClick={cancelEditing}
+                                    className="px-6 bg-luxury-ivory dark:bg-luxury-ivory/10 border border-luxury-beige py-4 rounded-xl flex items-center justify-center gap-2 font-bold text-[10px] uppercase tracking-widest hover:bg-luxury-bg transition-all text-luxury-espresso"
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+
+                              </motion.div>
+                            ) : (
+                              <div 
+                                onClick={() => startEditing(dIdx, aIdx, act)}
+                                className="cursor-pointer group/item relative"
+                              >
+                                <div className="absolute -left-4 -top-4 -right-4 -bottom-4 bg-luxury-beige/5 opacity-0 group-hover/item:opacity-100 rounded-3xl transition-opacity -z-10" />
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div className="flex-1">
+                                      <h4 className={cn(
+                                        "text-3xl font-serif font-bold text-luxury-espresso transition-all duration-700",
+                                        isCompleted ? "line-through italic" : "group-hover:italic"
+                                      )}>
+                                        {act.activity}
+                                      </h4>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-2">
+                                      <div className="flex items-center gap-4">
+                                        <StarRating 
+                                          rating={activityRatings[id] || 0} 
+                                          onRate={(r) => handleRateActivity(dIdx, aIdx, r)} 
+                                          size={14} 
+                                        />
+                                        <Edit3 size={14} className="text-luxury-cacao/20 group-hover/item:text-luxury-espresso transition-colors" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                <p className="text-lg text-luxury-espresso/60 leading-relaxed font-medium max-w-xl mt-4">{act.description}</p>
+                                {act.location && (
+                                  <div className="flex items-center gap-2 text-luxury-cacao text-xs font-bold uppercase tracking-[0.3em] pt-4 opacity-60">
+                                    <MapPin size={12} />
+                                    <span>{act.location}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+          </div>
+
+          {/* Detailed Tour Info - NEW SECTION */}
+          <motion.div 
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="space-y-16 pt-12 border-t border-luxury-beige/30"
+          >
+            <div className="flex items-center justify-between">
+              <div className="space-y-4">
+                <h2 className="text-5xl font-serif font-bold text-luxury-espresso">{t('itinerary.tourDetails.title')}</h2>
+                <div className="w-24 h-1 bg-luxury-espresso/20 rounded-full" />
+              </div>
+              {itinerary.tourPrice && (
+                <div className="text-right">
+                  <p className="text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.3em] opacity-40 mb-2">{t('itinerary.tourDetails.price')}</p>
+                  <p className="text-4xl font-serif font-bold text-luxury-espresso">
+                    {itinerary.tourPrice.currency} {itinerary.tourPrice.amount}
+                    {itinerary.tourPrice.perPerson && <span className="text-sm font-normal opacity-60 ml-2">/ {t('itinerary.tourDetails.perGuest')}</span>}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8">
+              {/* Includes */}
+              <div className="bg-luxury-ivory/40 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-[40px] p-10 space-y-8 glass-luxury">
+                <div className="flex items-center gap-4 border-b border-luxury-beige/30 pb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-600">
+                    <CheckCircle2 size={24} />
+                  </div>
+                  <h3 className="text-xl font-serif font-bold text-luxury-espresso">{t('itinerary.tourDetails.includes')}</h3>
+                </div>
+                <div className="grid gap-4">
+                  {(itinerary.tourIncludes || [
+                    "Flights", "5* Resort", "All meals", "LAGoon tour", "Insurance"
+                  ]).map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-4 text-luxury-espresso/80 font-medium group">
+                      <div className="w-5 h-5 rounded-full border border-green-500/30 flex items-center justify-center group-hover:bg-green-500 transition-colors">
+                        <Check size={10} className="text-green-600 group-hover:text-white" />
+                      </div>
+                      <span className="text-sm">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Excludes */}
+              <div className="bg-luxury-ivory/40 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-[40px] p-10 space-y-8 glass-luxury">
+                <div className="flex items-center gap-4 border-b border-luxury-beige/30 pb-6">
+                  <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-600">
+                    <X size={24} />
+                  </div>
+                  <h3 className="text-xl font-serif font-bold text-luxury-espresso">{t('itinerary.tourDetails.excludes')}</h3>
+                </div>
+                <div className="grid gap-4">
+                  {(itinerary.tourExcludes || [
+                    "Visa", "Personal tips", "VAT"
+                  ]).map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-4 text-luxury-espresso/80 font-medium group">
+                      <div className="w-5 h-5 rounded-full border border-red-500/30 flex items-center justify-center group-hover:bg-red-500 transition-colors">
+                        <X size={10} className="text-red-600 group-hover:text-white" />
+                      </div>
+                      <span className="text-sm">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Insurance */}
+              <div className="md:col-span-2 bg-luxury-ivory/40 dark:bg-luxury-ivory/10 border border-luxury-beige/30 rounded-[40px] p-10 md:p-16 space-y-10 glass-luxury relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
+                  <ShieldAlert size={160} />
+                </div>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-10">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-3xl bg-luxury-espresso text-luxury-ivory flex items-center justify-center shadow-xl shadow-luxury-espresso/20">
+                        <ShieldAlert size={28} />
+                      </div>
+                      <h3 className="text-3xl font-serif font-bold text-luxury-espresso">{t('itinerary.tourDetails.insurance')}</h3>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-40">{t('itinerary.tourDetails.coverage')}</p>
+                      <p className="text-2xl font-serif font-bold text-luxury-espresso">{itinerary.travelInsurance?.coverage || "1.200.000.000 - 1.800.000.000 VNĐ/khách"}</p>
+                    </div>
+                  </div>
+                  <div className="flex-1 max-w-xl">
+                    <p className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-40 mb-6">{t('itinerary.tourDetails.benefits')}</p>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      {(itinerary.travelInsurance?.benefits || [
+                        "Medical support", "Global 24/7", "Loss baggage", "Emergency flight"
+                      ]).map((benefit, idx) => (
+                        <div key={idx} className="flex items-center gap-3 text-luxury-espresso/70 text-sm font-medium">
+                          <Sparkles size={14} className="text-luxury-beige" />
+                          <span>{benefit}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="md:col-span-2 bg-amber-50/30 border border-amber-200/50 rounded-[40px] p-10 space-y-6">
+                <div className="flex items-center gap-3 text-amber-800">
+                  <Lightbulb size={20} />
+                  <h3 className="text-lg font-serif font-bold">{t('itinerary.tourDetails.notes')}</h3>
+                </div>
+                <ul className="grid sm:grid-cols-2 gap-6">
+                  {(itinerary.tourNotes || [
+                    "Please arrive 3 hours before flight.",
+                    "Dress formally for mansion dinners."
+                  ]).map((note, idx) => (
+                    <li key={idx} className="flex items-start gap-4 text-luxury-espresso/70 text-sm leading-relaxed">
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 shrink-0" />
+                      {note}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Travel Insights & Alerts Sections */}
+          <div className="space-y-12">
+            {/* Travel Insights */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-[48px] p-8 md:p-12 space-y-8 glass-luxury overflow-hidden"
+            >
+              <div className="flex items-center justify-between cursor-pointer" onClick={() => setInsightsExpanded(!insightsExpanded)}>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-luxury-espresso text-luxury-ivory rounded-2xl flex items-center justify-center shadow-lg transform rotate-3">
+                    <Sparkles size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-serif font-bold text-luxury-espresso">{t('itinerary.travelInsights.title')}</h2>
+                    <p className="text-xs text-luxury-cacao/60 font-bold uppercase tracking-widest">{t('itinerary.expertInsight')}</p>
+                  </div>
+                </div>
+                {insightsExpanded ? <ChevronUp size={24} className="text-luxury-cacao/40" /> : <ChevronDown size={24} className="text-luxury-cacao/40" />}
+              </div>
+
+              <AnimatePresence>
+                {insightsExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="space-y-10 overflow-hidden"
+                  >
+                    <div className="max-w-3xl">
+                       {/* Warnings & Tips */}
+                       <div className="grid sm:grid-cols-2 gap-8">
+                         <div className="space-y-4">
+                           <div className="flex items-center gap-3 text-luxury-espresso">
+                             <AlertTriangle size={18} className="text-amber-600" />
+                             <h3 className="text-lg font-serif font-bold">{t('itinerary.travelInsights.warnings')}</h3>
+                           </div>
+                           <div className="space-y-3">
+                             {(itinerary.travelInsights?.warnings || [t('itinerary.insightText')]).map((w, i) => (
+                               <div key={i} className="flex gap-3 text-sm text-luxury-espresso/70 leading-relaxed bg-white/40 dark:bg-white/5 p-4 rounded-2xl border border-luxury-beige/10">
+                                 <div className="w-1.5 h-1.5 bg-amber-600 rounded-full mt-1.5 flex-shrink-0" />
+                                 <p>{w}</p>
+                               </div>
+                             ))}
+                           </div>
+                         </div>
+                         <div className="space-y-4">
+                           <div className="flex items-center gap-3 text-luxury-espresso">
+                             <Lightbulb size={18} className="text-yellow-600" />
+                             <h3 className="text-lg font-serif font-bold">{t('itinerary.travelInsights.tips')}</h3>
+                           </div>
+                           <div className="space-y-3">
+                             {(itinerary.travelInsights?.tips || ["Explore early morning", "Carry water"]).map((tip, i) => (
+                               <div key={i} className="flex gap-3 text-sm text-luxury-espresso/70 leading-relaxed bg-white/40 dark:bg-white/5 p-4 rounded-2xl border border-luxury-beige/10">
+                                 <div className="w-1.5 h-1.5 bg-yellow-600 rounded-full mt-1.5 flex-shrink-0" />
+                                 <p>{tip}</p>
+                               </div>
+                             ))}
+                           </div>
+                         </div>
+                       </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            {/* Travel Alerts */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-[48px] p-8 md:p-12 space-y-8 glass-luxury overflow-hidden"
+            >
+              <div className="flex items-center justify-between cursor-pointer" onClick={() => setAlertsExpanded(!alertsExpanded)}>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-red-900/10 text-red-900 rounded-2xl flex items-center justify-center shadow-lg transform -rotate-3">
+                    <ShieldAlert size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-serif font-bold text-luxury-espresso">{t('itinerary.travelAlerts.title')}</h2>
+                    <p className="text-xs text-luxury-cacao/60 font-bold uppercase tracking-widest">{t('itinerary.localIntelligence')}</p>
+                  </div>
+                </div>
+                {alertsExpanded ? <ChevronUp size={24} className="text-luxury-cacao/40" /> : <ChevronDown size={24} className="text-luxury-cacao/40" />}
+              </div>
+
+              <AnimatePresence>
+                {alertsExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="space-y-8 overflow-hidden"
+                  >
+                    <div className="grid sm:grid-cols-3 gap-6">
+                      {/* Weather */}
+                      <div className="bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-3xl border border-blue-100/50 space-y-4">
+                        <div className="flex items-center gap-3 text-blue-900 dark:text-blue-200">
+                          <CloudRain size={20} />
+                          <h4 className="font-bold text-[10px] uppercase tracking-widest">{t('itinerary.travelAlerts.weather')}</h4>
+                        </div>
+                        <p className="text-sm text-blue-900/70 dark:text-blue-200/70 leading-relaxed font-medium">
+                          {itinerary.travelAlerts?.weather || t('itinerary.clear')}
+                        </p>
+                      </div>
+
+                      {/* Risks */}
+                      <div className="bg-amber-50/50 dark:bg-amber-900/10 p-6 rounded-3xl border border-amber-100/50 space-y-4">
+                        <div className="flex items-center gap-3 text-amber-900 dark:text-amber-200">
+                          <TrendingDown size={20} />
+                          <h4 className="font-bold text-[10px] uppercase tracking-widest">{t('itinerary.travelAlerts.risks')}</h4>
+                        </div>
+                        <div className="space-y-2">
+                          {(itinerary.travelAlerts?.risks || itinerary.alerts).map((r, i) => (
+                            <p key={i} className="text-sm text-amber-900/70 dark:text-amber-200/70 leading-relaxed font-medium">
+                               • {r}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Scams */}
+                      <div className="bg-red-50/50 dark:bg-red-900/10 p-6 rounded-3xl border border-red-100/50 space-y-4">
+                        <div className="flex items-center gap-3 text-red-900 dark:text-red-200">
+                          <ShieldAlert size={20} />
+                          <h4 className="font-bold text-[10px] uppercase tracking-widest">{t('itinerary.travelAlerts.scams')}</h4>
+                        </div>
+                        <div className="space-y-2">
+                          {(itinerary.travelAlerts?.scams || ["Overtipping", "Unlicensed guides"]).map((s, i) => (
+                            <p key={i} className="text-sm text-red-900/70 dark:text-red-200/70 leading-relaxed font-medium">
+                               • {s}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </div>
+
+          {/* Journey Map Section */}
+          <div className="space-y-12">
+            <div className="flex items-center justify-between border-b border-luxury-beige/30 pb-10">
+              <div className="space-y-2">
+                <h2 className="text-5xl font-serif font-bold text-luxury-espresso">{isPhiMode ? "Phi" : t('itinerary.mapHeader')}</h2>
+                <p className="text-sm text-luxury-cacao/60 font-medium italic">{isPhiMode ? "Phi" : t('itinerary.spatialDesc')}</p>
+              </div>
+              <div className="flex items-center gap-3 px-6 py-3 bg-luxury-bg rounded-full border border-luxury-beige/30">
+                <MapIcon size={14} className="text-luxury-espresso" />
+                <span className="text-[10px] font-bold text-luxury-espresso uppercase tracking-widest">{isPhiMode ? "Phi" : `${allLocations.length} ${t('itinerary.points')}`}</span>
+              </div>
+            </div>
+            
+            <MapView 
+              locations={allLocations} 
+              destination={itinerary.destination} 
+              activities={allActivities} 
+              onPointSelect={(idx) => {
+                // Determine day index and activity index from flat allActivities list
+                let count = 0;
+                itinerary.days.forEach((day, dIdx) => {
+                  day.activities.forEach((_, aIdx) => {
+                    if (count === idx) {
+                      setHighlightedId(`${dIdx}-${aIdx}`);
+                      // Clear highlight after some time or on manual dismissal
+                      setTimeout(() => setHighlightedId(null), 5000);
+                      
+                      // Find element and scroll to it
+                      const el = document.getElementById(`activity-${dIdx}-${aIdx}`);
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }
+                    count++;
+                  });
+                });
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="lg:col-span-4 space-y-12">
+          {/* Smart Insights */}
+          <div className="bg-luxury-espresso text-luxury-ivory p-12 rounded-[56px] space-y-10 shadow-2xl shadow-luxury-espresso/10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl rounded-full" />
+            <div className="flex items-center gap-4">
+              <div className="px-3 py-1 bg-white/10 rounded-lg text-[9px] font-bold uppercase tracking-[0.4em]">{isPhiMode ? "Phi" : t('itinerary.expertInsight')}</div>
+            </div>
+            <p className="text-3xl font-serif font-bold leading-[1.2] italic">"{isPhiMode ? "Phi" : t('itinerary.curationNote')}"</p>
+            <div className="space-y-8 pt-6">
+              {itinerary.insights.map((insight, idx) => (
+                <div key={idx} className="flex gap-5 text-luxury-ivory/80">
+                  <div className="w-1.5 h-1.5 bg-luxury-beige rounded-full mt-2.5 flex-shrink-0" />
+                  <p className="text-sm leading-relaxed font-medium">{insight}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Local Alerts */}
+          <div className="bg-luxury-beige/10 p-12 rounded-[56px] border border-luxury-beige/20 space-y-8">
+            <div className="flex items-center gap-4 text-luxury-espresso opacity-60">
+              <AlertTriangle size={20} />
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.4em]">{isPhiMode ? "Phi" : t('itinerary.localIntelligence')}</h3>
+            </div>
+            <div className="space-y-6">
+              {itinerary.alerts.map((alert, idx) => (
+                <p key={idx} className="text-xs text-luxury-espresso/70 leading-relaxed font-medium italic border-l border-luxury-espresso/20 pl-6">
+                  " {alert} "
+                </p>
+              ))}
+            </div>
+          </div>
+
+          {/* Budget Tracker */}
+          <div className="bg-luxury-ivory dark:bg-luxury-ivory/20 border border-luxury-beige/30 p-12 rounded-[56px] space-y-10 shadow-xl shadow-luxury-beige/5 transition-colors duration-500">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <PieChart size={18} className="text-luxury-cacao opacity-60" />
+                <h3 className="text-[10px] font-bold uppercase tracking-[0.4em] text-luxury-cacao opacity-60">{isPhiMode ? "Phi" : t('itinerary.budgetControl')}</h3>
+              </div>
+              <div className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                totalActual > totalEstimated ? "bg-red-500/10 text-red-600" : "bg-green-500/10 text-green-600"
+              )}>
+                <DollarSign size={14} />
+              </div>
+            </div>
+
+            <div className="space-y-8">
+              <div className="h-[200px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={budgetData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                    <XAxis 
+                      dataKey="category" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: 'var(--luxury-espresso)', fontSize: 8, fontWeight: 'bold' }} 
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: 'var(--luxury-espresso)', fontSize: 8, opacity: 0.3 }}
+                    />
+                    <Tooltip 
+                      cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                      contentStyle={{ 
+                        backgroundColor: 'var(--luxury-ivory)', 
+                        borderRadius: '12px', 
+                        border: '1px solid var(--luxury-beige)',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+                        fontSize: '10px'
+                      }}
+                    />
+                    <Bar dataKey="estimated" name="Est." fill="#D8CBBE" radius={[4, 4, 0, 0]} barSize={12} />
+                    <Bar dataKey="actual" name="Spent" radius={[4, 4, 0, 0]} barSize={12}>
+                      {budgetData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.actual > entry.estimated ? '#ef4444' : '#3B2A25'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pb-4 border-b border-luxury-beige/10">
+                <div className="space-y-1">
+                  <div className="text-[8px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">Estimated</div>
+                  <div className="text-xl font-serif font-bold text-luxury-espresso">${totalEstimated.toLocaleString()}</div>
+                </div>
+                <div className="space-y-1 text-right">
+                  <div className="text-[8px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">{t('itinerary.actualSpent')}</div>
+                  <div className={cn(
+                    "text-xl font-serif font-bold",
+                    totalActual > totalEstimated ? "text-red-600" : "text-luxury-espresso"
+                  )}>${totalActual.toLocaleString()}</div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {[
+                  { id: 'flights', label: isPhiMode ? "Phi" : t('itinerary.bookingFlights'), icon: <Plane size={14} /> },
+                  { id: 'accommodation', label: isPhiMode ? "Phi" : t('itinerary.bookingHotels'), icon: <Hotel size={14} /> },
+                  { id: 'activities', label: isPhiMode ? "Phi" : t('itinerary.bookingActivities'), icon: <Ticket size={14} /> },
+                  { id: 'food', label: isPhiMode ? "Phi" : t('itinerary.bookingDining') || 'Dining', icon: <Utensils size={14} /> },
+                ].map((item) => (
+                  <div key={item.id} className="group flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-luxury-bg/50 flex items-center justify-center text-luxury-cacao">
+                        {item.icon}
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-luxury-espresso opacity-60">{item.label}</span>
+                    </div>
+                    <div className="relative group/input">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-luxury-cacao opacity-20">$</span>
+                      <input 
+                        type="number"
+                        value={expenses[item.id as keyof typeof expenses] || ''}
+                        onChange={(e) => setExpenses(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
+                        className="w-24 bg-transparent border-b border-luxury-beige/20 py-1 pl-6 pr-1 text-right text-xs font-bold text-luxury-espresso focus:outline-none focus:border-luxury-espresso transition-colors"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Booking & Reservations */}
+          <div className="bg-luxury-ivory dark:bg-luxury-ivory/20 border border-luxury-beige/30 p-12 rounded-[56px] space-y-10 shadow-xl shadow-luxury-beige/5 transition-colors duration-500">
+            {/* ... (existing booking content) */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.4em] text-luxury-cacao opacity-60">{t('itinerary.bookingHeader')}</h3>
+              <div className="w-8 h-8 rounded-full bg-luxury-bg flex items-center justify-center">
+                <Check size={12} className="text-luxury-espresso" />
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <a 
+                href="https://www.vietjetair.com/" 
+                target="_blank" 
+                rel="noreferrer"
+                className="group flex items-center justify-between p-6 bg-luxury-bg/50 hover:bg-luxury-espresso hover:text-luxury-ivory rounded-3xl transition-all duration-500 border border-luxury-beige/20"
+              >
+                <div className="flex items-center gap-6">
+                  <div className="w-12 h-12 rounded-2xl bg-luxury-ivory dark:bg-luxury-ivory/20 group-hover:bg-white/10 flex items-center justify-center transition-colors">
+                    <Plane size={20} className="text-luxury-espresso group-hover:text-luxury-ivory" />
+                  </div>
+                  <span className="font-serif font-bold tracking-tight">{t('itinerary.bookingFlights')}</span>
+                </div>
+                <ChevronRight size={16} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+              </a>
+
+              <a 
+                href={`https://www.booking.com/searchresults.html?ss=${encodeURIComponent(itinerary.destination)}`} 
+                target="_blank" 
+                rel="noreferrer"
+                className="group flex items-center justify-between p-6 bg-luxury-bg/50 hover:bg-luxury-espresso hover:text-luxury-ivory rounded-3xl transition-all duration-500 border border-luxury-beige/20"
+              >
+                <div className="flex items-center gap-6">
+                  <div className="w-12 h-12 rounded-2xl bg-luxury-ivory dark:bg-luxury-ivory/20 group-hover:bg-white/10 flex items-center justify-center transition-colors">
+                    <Hotel size={20} className="text-luxury-espresso group-hover:text-luxury-ivory" />
+                  </div>
+                  <span className="font-serif font-bold tracking-tight">{t('itinerary.bookingHotels')}</span>
+                </div>
+                <ChevronRight size={16} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+              </a>
+
+              <a 
+                href={`https://www.tripadvisor.com/Search?q=${encodeURIComponent(itinerary.destination)}`} 
+                target="_blank" 
+                rel="noreferrer"
+                className="group flex items-center justify-between p-6 bg-luxury-bg/50 hover:bg-luxury-espresso hover:text-luxury-ivory rounded-3xl transition-all duration-500 border border-luxury-beige/20"
+              >
+                <div className="flex items-center gap-6">
+                  <div className="w-12 h-12 rounded-2xl bg-luxury-ivory dark:bg-luxury-ivory/20 group-hover:bg-white/10 flex items-center justify-center transition-colors">
+                    <Ticket size={20} className="text-luxury-espresso group-hover:text-luxury-ivory" />
+                  </div>
+                  <span className="font-serif font-bold tracking-tight">{t('itinerary.bookingActivities')}</span>
+                </div>
+                <ChevronRight size={16} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+              </a>
+            </div>
+
+            <p className="text-[9px] text-center text-luxury-cacao/40 font-medium uppercase tracking-[0.2em] pt-4">
+              {t('itinerary.externalLinks') || 'External Artisan Links · MMXXVI'}
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="pt-32 pb-12 text-center">
+        <div className="w-24 h-px bg-luxury-beige/30 mx-auto mb-8" />
+        <p className="text-luxury-cacao/40 font-bold text-[9px] uppercase tracking-[0.5em]">{t('itinerary.footer')}</p>
+      </div>
+      {/* Metadata Section */}
+      {itinerary.metadata && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          className="pt-12 border-t border-luxury-beige/30 flex flex-wrap gap-x-12 gap-y-6 text-[10px] uppercase tracking-[0.3em] font-bold text-luxury-cacao/40"
+        >
+          <div className="flex items-center gap-3 group">
+            <div className="p-2 rounded-lg bg-luxury-ivory/40 group-hover:bg-luxury-beige/20 transition-colors">
+              <User size={14} className="text-luxury-espresso" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="opacity-60">{t('itinerary.author')}</span>
+              <span className="text-luxury-espresso tracking-[0.4em]">{itinerary.metadata.author}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 group">
+            <div className="p-2 rounded-lg bg-luxury-ivory/40 group-hover:bg-luxury-beige/20 transition-colors">
+              <Calendar size={14} className="text-luxury-espresso" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="opacity-60">{t('itinerary.created')}</span>
+              <span className="text-luxury-espresso tracking-[0.4em]">
+                {new Date(itinerary.metadata.createdAt).toLocaleDateString(undefined, { 
+                  year: 'numeric', 
+                  month: 'short', 
+                  day: 'numeric' 
+                })}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 group">
+            <div className="p-2 rounded-lg bg-luxury-ivory/40 group-hover:bg-luxury-beige/20 transition-colors">
+              <Edit3 size={14} className="text-luxury-espresso" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="opacity-60">{t('itinerary.lastModified')}</span>
+              <span className="text-luxury-espresso tracking-[0.4em]">
+                {new Date(itinerary.metadata.lastModified).toLocaleDateString(undefined, { 
+                  year: 'numeric', 
+                  month: 'short', 
+                  day: 'numeric' 
+                })}
+              </span>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Floating Actions */}
+      <div className="fixed bottom-6 right-6 md:bottom-10 md:right-10 z-[80] flex flex-col gap-3 md:gap-4 items-end">
+        <div className="flex flex-col gap-3 md:gap-4">
+          <motion.a
+            href="https://zalo.me/0862679235"
+            target="_blank"
+            rel="noopener noreferrer"
+            initial={{ scale: 0, x: 100 }}
+            animate={{ scale: 1, x: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 20 }}
+            className="w-12 h-12 md:w-16 md:h-16 bg-[#0068ff] text-white rounded-full flex items-center justify-center shadow-2xl shadow-blue-500/40 hover:scale-110 active:scale-95 transition-all relative group"
+          >
+            <div className="absolute inset-0 rounded-full bg-blue-500 animate-pulse opacity-20 scale-125" />
+            <svg className="w-6 h-6 md:w-10 md:h-10 fill-current" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12c0 1.95.56 3.77 1.52 5.32L2.09 21.6c-.15.42.24.81.66.66l4.28-1.43C8.42 21.44 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm4.5 13.5c-.3 0-.6-.1-.8-.3-.2-.2-.3-.5-.3-.8s.1-.6.3-.8.5-.3.8-.3.7.1.9.3c.2.2.3.5.3.8s-.1.6-.3.8-.5.3-.9.3zm0-2c-.1 0-.2.05-.3.1s-.15.15-.2.2c-.05.05-.05.15-.05.25v.05c0 .1.01.2.05.3.05.15.15.2.2.25.1.05.2.1.3.1.1 0 .2-.05.3-.1s.15-.1.2-.25.05-.2.05-.3V15c0-.1-.01-.2-.05-.25-.05-.1-.15-.2-.2-.2s-.2-.05-.3-.05zM12 15.5c-.3 0-.6-.1-.8-.3-.2-.2-.3-.5-.3-.8s.1-.6.3-.8.5-.3.8-.3c.1 0 .2.01.4.05.15.05.25.15.3.3s.1.3.1.5c0 .3-.1.5-.3.7-.2.2-.4.3-.7.3.1 0 .2-.01.3-.01V15c.01 0 .01.01.01.01s.05.05.05.05h.05z" />
+            </svg>
+            <span className="absolute right-16 md:right-20 bg-luxury-espresso text-luxury-ivory px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl pointer-events-none">Zalo</span>
+          </motion.a>
+          <motion.a
+            href="tel:0862679235"
+            initial={{ scale: 0, x: 100 }}
+            animate={{ scale: 1, x: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.1 }}
+            className="w-12 h-12 md:w-16 md:h-16 bg-green-500 text-white rounded-full flex items-center justify-center shadow-2xl shadow-green-500/40 hover:scale-110 active:scale-95 transition-all relative group"
+          >
+            <div className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-10" />
+            <Phone size={20} className="md:w-7 md:h-7" />
+            <span className="absolute right-16 md:right-20 bg-luxury-espresso text-luxury-ivory px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl pointer-events-none">GỌI ĐIỆN</span>
+          </motion.a>
+        </div>
+        <motion.button
+          onClick={() => setShowBookingModal(true)}
+          initial={{ scale: 0, x: 100 }}
+          animate={{ scale: 1, x: 0 }}
+          transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.2 }}
+          className="px-6 md:px-10 py-5 md:py-6 bg-luxury-espresso text-luxury-ivory rounded-full shadow-2xl shadow-luxury-espresso/40 hover:scale-105 active:scale-95 transition-all relative group overflow-hidden ring-4 ring-luxury-espresso/10"
+        >
+          <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 skew-x-12" />
+          <div className="flex items-center justify-center gap-3">
+            <Sparkles size={16} className="text-luxury-beige" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.4em] relative z-10">
+              {isSubmitting ? 'Processing...' : isSuccess ? 'Success' : t('itinerary.bookNow')}
+            </span>
+          </div>
+          <div className="absolute inset-0 border border-luxury-ivory/20 rounded-full animate-pulse" />
+        </motion.button>
+      </div>
+
+    </div>
+  );
+}
