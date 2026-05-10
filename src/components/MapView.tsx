@@ -158,7 +158,7 @@ export default function MapView({ locations, destination, activities, onPointSel
         <div className="relative z-10 flex flex-col items-center">
           <Navigation className="text-luxury-cacao/40 animate-pulse mb-6" size={48} />
           <div className="flex flex-col items-center gap-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.5em] text-luxury-cacao/60 animate-pulse">Mapping Curation</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.5em] text-luxury-cacao/60 animate-pulse">{t?.('itinerary.mappingCuration')}</p>
             <div className="w-16 h-px bg-luxury-beige/40" />
             <p className="text-[8px] text-luxury-cacao/30 font-medium uppercase tracking-[0.2em]">{destination}</p>
           </div>
@@ -232,7 +232,7 @@ export default function MapView({ locations, destination, activities, onPointSel
               <div className="p-4 space-y-4 min-w-[240px]">
                 <div className="flex items-center gap-3 text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.2em] opacity-60">
                   <div className="w-1.5 h-1.5 bg-luxury-espresso rounded-full" />
-                  <span>{t?.('itinerary.timeline') || 'Activity Point'}</span>
+                  <span>{t?.('itinerary.activityPoint')}</span>
                 </div>
                 <h4 className="text-xl font-serif font-bold text-luxury-espresso border-b border-luxury-beige/10 pb-3">
                   {marker.name}
@@ -249,7 +249,7 @@ export default function MapView({ locations, destination, activities, onPointSel
                     className="flex items-center justify-center gap-3 w-full py-3 bg-luxury-espresso text-luxury-ivory rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-luxury-espresso/90 transition-all shadow-lg shadow-luxury-espresso/20"
                   >
                     <Navigation size={12} />
-                    <span>Get Directions</span>
+                    <span>{t?.('itinerary.getDirections')}</span>
                   </a>
                 </div>
               </div>
@@ -265,7 +265,7 @@ export default function MapView({ locations, destination, activities, onPointSel
             <Navigation size={18} />
           </div>
           <div>
-            <p className="text-[8px] text-luxury-cacao uppercase font-bold tracking-[0.2em]">Interactive Guide</p>
+            <p className="text-[8px] text-luxury-cacao uppercase font-bold tracking-[0.2em]">{t?.('itinerary.interactiveGuide')}</p>
             <p className="font-serif font-bold text-sm text-luxury-espresso tracking-tight">{destination}</p>
           </div>
         </div>
@@ -273,7 +273,7 @@ export default function MapView({ locations, destination, activities, onPointSel
         <button 
           onClick={() => setCenter([...center])}
           className="bg-luxury-ivory/90 dark:bg-luxury-ivory/80 backdrop-blur-xl w-12 h-12 rounded-2xl shadow-xl border border-luxury-beige/30 flex items-center justify-center text-luxury-espresso hover:bg-luxury-espresso hover:text-luxury-ivory transition-all duration-300 group"
-          title="Recenter Map"
+          title={t?.('itinerary.recenterMap')}
         >
           <MapPin size={18} className="group-hover:scale-110 transition-transform" />
         </button>
@@ -282,7 +282,7 @@ export default function MapView({ locations, destination, activities, onPointSel
       <div className="absolute bottom-8 right-8 z-20">
         <div className="bg-luxury-espresso text-luxury-ivory px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl text-[10px] font-bold uppercase tracking-[0.3em]">
           <Info size={14} className="text-luxury-beige" />
-          <span>{markers.length} Selected Points</span>
+          <span>{markers.length} {t?.('itinerary.selectedPoints')}</span>
         </div>
       </div>
       

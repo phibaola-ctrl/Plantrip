@@ -75,6 +75,29 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
     notes: '',
     guests: '2'
   });
+  const [guestError, setGuestError] = useState<string | null>(null);
+
+  const handleGuestChange = (val: string) => {
+    // Only allow digits
+    const cleaned = val.replace(/[^0-9]/g, '');
+    
+    if (cleaned === '') {
+      setBookingForm(prev => ({ ...prev, guests: '' }));
+      setGuestError(null);
+      return;
+    }
+
+    const num = parseInt(cleaned, 10);
+    if (num <= 0) {
+      setGuestError(t('itinerary.guestErrorPositive') || 'Số lượng khách phải lớn hơn 0');
+    } else if (num > 50) {
+      setGuestError(t('itinerary.guestErrorLimit') || 'Tối đa 50 khách cho mỗi lượt đặt');
+    } else {
+      setGuestError(null);
+    }
+    
+    setBookingForm(prev => ({ ...prev, guests: cleaned }));
+  };
 
   // Rating State
   const [overallRating, setOverallRating] = useState<number>(() => {
@@ -174,7 +197,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
       { category: t('itinerary.bookingFlights'), estimated: multipliers.flights, actual: expenses.flights, color: '#3B2A25' },
       { category: t('itinerary.bookingHotels'), estimated: multipliers.accommodation * days, actual: expenses.accommodation, color: '#5A3E36' },
       { category: t('itinerary.bookingActivities'), estimated: multipliers.activities * days, actual: expenses.activities, color: '#D8CBBE' },
-      { category: t('itinerary.bookingDining') || 'Dining', estimated: multipliers.food * days, actual: expenses.food, color: '#C4B5A6' },
+      { category: t('itinerary.bookingDining'), estimated: multipliers.food * days, actual: expenses.food, color: '#C4B5A6' },
     ];
   }, [expenses, itinerary.duration, itinerary.days.length, itinerary.travelStyle, isPhiMode, t]);
 
@@ -208,8 +231,12 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
       setIsSubmitting(false);
       setIsSuccess(true);
       
-      // Save locally
-      const bookings = JSON.parse(localStorage.getItem('demo_bookings') || '[]');
+      let bookings;
+      try {
+        bookings = JSON.parse(localStorage.getItem('demo_bookings') || '[]');
+      } catch {
+        bookings = [];
+      }
       bookings.push({
         ...bookingForm,
         destination: itinerary.destination,
@@ -518,7 +545,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                     className="flex items-center gap-2"
                   >
                     <RefreshCw size={14} className="animate-spin" />
-                    <span>Processing...</span>
+                    <span>{t('itinerary.processing')}</span>
                   </motion.div>
                 ) : (
                   <motion.div 
@@ -546,14 +573,14 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                 title={isFavorite ? t('itinerary.removeFromFav') : t('itinerary.saveToFav')}
               >
                 <Heart size={16} className={cn("transition-transform duration-300 group-hover:scale-125", isFavorite && "fill-luxury-espresso")} />
-                <span className="inline">{isFavorite ? (isPhiMode ? "Phi" : t('savedBtnActive')) : (isPhiMode ? "Phi" : t('savedBtn'))}</span>
+                <span className="inline">{isFavorite ? (isPhiMode ? "Phi" : t('itinerary.savedBtnActive')) : (isPhiMode ? "Phi" : t('itinerary.savedBtn'))}</span>
               </button>
               <button 
                 onClick={handleDownload}
                 className="hidden sm:flex p-4 md:p-5 bg-luxury-ivory dark:bg-luxury-ivory/20 border border-luxury-beige text-luxury-espresso rounded-full font-bold text-[10px] uppercase tracking-[0.3em] items-center gap-3 hover:bg-luxury-bg transition-all"
               >
                 <Download size={16} />
-                <span className="hidden md:inline">{isPhiMode ? "Phi" : t('itinerary.export')}</span>
+                <span className="hidden md:inline">{isPhiMode ? "Phi" : t('itinerary.downloadBtn')}</span>
               </button>
             </div>
           </div>
@@ -655,18 +682,41 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                       </div>
                       <div className="space-y-3">
                         <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingGuests')}</label>
-                        <div className="relative">
-                          <select 
+                        <div className="relative group/guest">
+                          <input 
+                            type="text"
+                            inputMode="numeric"
                             value={bookingForm.guests}
-                            onChange={e => setBookingForm(prev => ({ ...prev, guests: e.target.value }))}
-                            className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all appearance-none text-luxury-espresso"
-                          >
-                            {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
-                              <option key={n} value={n}>{isPhiMode ? "Phi" : `${n} ${t('itinerary.guests', { count: n })}`}</option>
-                            ))}
-                          </select>
-                          <ChevronDown size={14} className="absolute right-6 top-1/2 -translate-y-1/2 text-luxury-cacao opacity-40 pointer-events-none" />
+                            onChange={e => handleGuestChange(e.target.value)}
+                            className={cn(
+                              "w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-4 transition-all pr-24 text-luxury-espresso placeholder:text-luxury-cacao/30",
+                              guestError 
+                                ? "border-red-300 focus:ring-red-500/10" 
+                                : "border-luxury-beige/30 focus:border-luxury-espresso/30 focus:ring-luxury-espresso/5 focus:shadow-lg focus:shadow-luxury-espresso/5"
+                            )}
+                            placeholder={isPhiMode ? "Phi" : t('itinerary.placeholder_guests')}
+                          />
+                          <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-3 pointer-events-none">
+                            {bookingForm.guests && !guestError && (
+                              <span className="text-xs font-bold text-luxury-espresso/40 lowercase">
+                                {isPhiMode ? "Phi" : t('itinerary.guest_suffix')}
+                              </span>
+                            )}
+                            <User size={14} className={cn(
+                              "transition-colors duration-300",
+                              guestError ? "text-red-400" : "text-luxury-cacao opacity-40 group-focus-within/guest:text-luxury-espresso group-focus-within/guest:opacity-100"
+                            )} />
+                          </div>
                         </div>
+                        {guestError && (
+                          <motion.p 
+                            initial={{ opacity: 0, y: -5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-[9px] font-bold text-red-500 uppercase tracking-widest ml-2"
+                          >
+                            {guestError}
+                          </motion.p>
+                        )}
                       </div>
                       <div className="space-y-3 md:col-span-2">
                         <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingAddress')}</label>
@@ -674,7 +724,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                           value={bookingForm.address}
                           onChange={e => setBookingForm(prev => ({ ...prev, address: e.target.value }))}
                           className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all text-luxury-espresso"
-                          placeholder="Ex: 123 Luxury Ave, District 1, HCMC"
+                          placeholder={t('itinerary.placeholder_address') || "Ví dụ: 123 Đường Lê Lợi, Quận 1, TP.HCM"}
                         />
                       </div>
                       <div className="space-y-3 md:col-span-2">
@@ -683,7 +733,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                           value={bookingForm.notes}
                           onChange={e => setBookingForm(prev => ({ ...prev, notes: e.target.value }))}
                           className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all h-24 resize-none text-luxury-espresso"
-                          placeholder={t('itinerary.placeholder_notes') || "Any special requests (dietary, anniversary, etc.)?"}
+                          placeholder={t('itinerary.placeholder_notes') || "Yêu cầu đặc biệt khác (chế độ ăn uống, kỷ niệm, v.v.)"}
                         />
                       </div>
                       <div className="md:col-span-2 pt-6">
@@ -816,7 +866,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <label className="text-[10px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">{t('setup.step1.daysLabel') || 'Description'}</label>
+                                  <label className="text-[10px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">{t('itinerary.activityDescription')}</label>
                                   <textarea 
                                     value={editForm.description}
                                     onChange={e => setEditForm(prev => ({ ...prev, description: e.target.value }))}
@@ -824,12 +874,12 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <label className="text-[10px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">{t('itinerary.spatialIndex') || 'Location'}</label>
+                                  <label className="text-[10px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">{t('itinerary.spatialIndex')}</label>
                                   <input 
                                     value={editForm.location}
                                     onChange={e => setEditForm(prev => ({ ...prev, location: e.target.value }))}
                                     className="w-full bg-luxury-ivory/80 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-xl px-4 py-3 text-sm text-luxury-espresso/70 focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all"
-                                    placeholder={t('itinerary.location_placeholder') || 'Add location details...'}
+                                    placeholder={t('itinerary.location_placeholder')}
                                   />
                                 </div>
                                 <div className="flex gap-4 pt-4">
@@ -911,7 +961,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                 <div className="text-right">
                   <p className="text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.3em] opacity-40 mb-2">{t('itinerary.tourDetails.price')}</p>
                   <p className="text-4xl font-serif font-bold text-luxury-espresso">
-                    {itinerary.tourPrice.currency} {itinerary.tourPrice.amount}
+                    {Number(itinerary.tourPrice.amount).toLocaleString('vi-VN')} VND
                     {itinerary.tourPrice.perPerson && <span className="text-sm font-normal opacity-60 ml-2">/ {t('itinerary.tourDetails.perGuest')}</span>}
                   </p>
                 </div>
@@ -1033,7 +1083,6 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                   </div>
                   <div>
                     <h2 className="text-3xl font-serif font-bold text-luxury-espresso">{t('itinerary.travelInsights.title')}</h2>
-                    <p className="text-xs text-luxury-cacao/60 font-bold uppercase tracking-widest">{t('itinerary.expertInsight')}</p>
                   </div>
                 </div>
                 {insightsExpanded ? <ChevronUp size={24} className="text-luxury-cacao/40" /> : <ChevronDown size={24} className="text-luxury-cacao/40" />}
@@ -1098,7 +1147,6 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                   </div>
                   <div>
                     <h2 className="text-3xl font-serif font-bold text-luxury-espresso">{t('itinerary.travelAlerts.title')}</h2>
-                    <p className="text-xs text-luxury-cacao/60 font-bold uppercase tracking-widest">{t('itinerary.localIntelligence')}</p>
                   </div>
                 </div>
                 {alertsExpanded ? <ChevronUp size={24} className="text-luxury-cacao/40" /> : <ChevronDown size={24} className="text-luxury-cacao/40" />}
@@ -1206,9 +1254,9 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
           <div className="bg-luxury-espresso text-luxury-ivory p-12 rounded-[56px] space-y-10 shadow-2xl shadow-luxury-espresso/10 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl rounded-full" />
             <div className="flex items-center gap-4">
-              <div className="px-3 py-1 bg-white/10 rounded-lg text-[9px] font-bold uppercase tracking-[0.4em]">{isPhiMode ? "Phi" : t('itinerary.expertInsight')}</div>
+              <div className="px-3 py-1 bg-white/10 rounded-lg text-[9px] font-bold uppercase tracking-[0.4em]">{isPhiMode ? "Phi" : t('itinerary.curationNote')}</div>
             </div>
-            <p className="text-3xl font-serif font-bold leading-[1.2] italic">"{isPhiMode ? "Phi" : t('itinerary.curationNote')}"</p>
+            <p className="text-3xl font-serif font-bold leading-[1.2] italic">{isPhiMode ? "Phi" : t('itinerary.insightText')}</p>
             <div className="space-y-8 pt-6">
               {itinerary.insights.map((insight, idx) => (
                 <div key={idx} className="flex gap-5 text-luxury-ivory/80">
@@ -1263,6 +1311,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                       axisLine={false} 
                       tickLine={false} 
                       tick={{ fill: 'var(--luxury-espresso)', fontSize: 8, opacity: 0.3 }}
+                      tickFormatter={(value) => (value * 1000).toLocaleString('vi-VN')}
                     />
                     <Tooltip 
                       cursor={{ fill: 'rgba(0,0,0,0.02)' }}
@@ -1273,6 +1322,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                         boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
                         fontSize: '10px'
                       }}
+                      formatter={(value: number) => [`${(value * 1000).toLocaleString('vi-VN')} VND`]}
                     />
                     <Bar dataKey="estimated" name="Est." fill="#D8CBBE" radius={[4, 4, 0, 0]} barSize={12} />
                     <Bar dataKey="actual" name="Spent" radius={[4, 4, 0, 0]} barSize={12}>
@@ -1286,15 +1336,15 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
 
               <div className="grid grid-cols-2 gap-4 pb-4 border-b border-luxury-beige/10">
                 <div className="space-y-1">
-                  <div className="text-[8px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">Estimated</div>
-                  <div className="text-xl font-serif font-bold text-luxury-espresso">${totalEstimated.toLocaleString()}</div>
+                  <div className="text-[8px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">{t('itinerary.estimatedLabel')}</div>
+                  <div className="text-xl font-serif font-bold text-luxury-espresso">{(totalEstimated * 1000).toLocaleString('vi-VN')} VND</div>
                 </div>
                 <div className="space-y-1 text-right">
                   <div className="text-[8px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">{t('itinerary.actualSpent')}</div>
                   <div className={cn(
                     "text-xl font-serif font-bold",
                     totalActual > totalEstimated ? "text-red-600" : "text-luxury-espresso"
-                  )}>${totalActual.toLocaleString()}</div>
+                  )}>{(totalActual * 1000).toLocaleString('vi-VN')} VND</div>
                 </div>
               </div>
 
@@ -1303,7 +1353,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                   { id: 'flights', label: isPhiMode ? "Phi" : t('itinerary.bookingFlights'), icon: <Plane size={14} /> },
                   { id: 'accommodation', label: isPhiMode ? "Phi" : t('itinerary.bookingHotels'), icon: <Hotel size={14} /> },
                   { id: 'activities', label: isPhiMode ? "Phi" : t('itinerary.bookingActivities'), icon: <Ticket size={14} /> },
-                  { id: 'food', label: isPhiMode ? "Phi" : t('itinerary.bookingDining') || 'Dining', icon: <Utensils size={14} /> },
+                  { id: 'food', label: isPhiMode ? "Phi" : t('itinerary.bookingDining'), icon: <Utensils size={14} /> },
                 ].map((item) => (
                   <div key={item.id} className="group flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -1312,15 +1362,15 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                       </div>
                       <span className="text-[10px] font-bold uppercase tracking-widest text-luxury-espresso opacity-60">{item.label}</span>
                     </div>
-                    <div className="relative group/input">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-luxury-cacao opacity-20">$</span>
+                    <div className="flex items-center gap-2 group/input">
                       <input 
                         type="number"
                         value={expenses[item.id as keyof typeof expenses] || ''}
                         onChange={(e) => setExpenses(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
-                        className="w-24 bg-transparent border-b border-luxury-beige/20 py-1 pl-6 pr-1 text-right text-xs font-bold text-luxury-espresso focus:outline-none focus:border-luxury-espresso transition-colors"
+                        className="w-24 bg-transparent border-b border-luxury-beige/20 py-1 px-1 text-right text-xs font-bold text-luxury-espresso focus:outline-none focus:border-luxury-espresso transition-colors"
                         placeholder="0"
                       />
+                      <span className="text-[10px] font-bold tracking-widest text-luxury-cacao opacity-40">VND</span>
                     </div>
                   </div>
                 ))}
@@ -1386,7 +1436,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
             </div>
 
             <p className="text-[9px] text-center text-luxury-cacao/40 font-medium uppercase tracking-[0.2em] pt-4">
-              {t('itinerary.externalLinks') || 'External Artisan Links · MMXXVI'}
+              {t('itinerary.externalLinks')}
             </p>
           </div>
         </div>
@@ -1420,9 +1470,9 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
             <div className="flex flex-col gap-1">
               <span className="opacity-60">{t('itinerary.created')}</span>
               <span className="text-luxury-espresso tracking-[0.4em]">
-                {new Date(itinerary.metadata.createdAt).toLocaleDateString(undefined, { 
+                {new Date(itinerary.metadata.createdAt).toLocaleDateString('vi-VN', { 
                   year: 'numeric', 
-                  month: 'short', 
+                  month: 'long', 
                   day: 'numeric' 
                 })}
               </span>
@@ -1435,9 +1485,9 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
             <div className="flex flex-col gap-1">
               <span className="opacity-60">{t('itinerary.lastModified')}</span>
               <span className="text-luxury-espresso tracking-[0.4em]">
-                {new Date(itinerary.metadata.lastModified).toLocaleDateString(undefined, { 
+                {new Date(itinerary.metadata.lastModified).toLocaleDateString('vi-VN', { 
                   year: 'numeric', 
-                  month: 'short', 
+                  month: 'long', 
                   day: 'numeric' 
                 })}
               </span>
@@ -1473,7 +1523,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
           >
             <div className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-10" />
             <Phone size={20} className="md:w-7 md:h-7" />
-            <span className="absolute right-16 md:right-20 bg-luxury-espresso text-luxury-ivory px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl pointer-events-none">GỌI ĐIỆN</span>
+            <span className="absolute right-16 md:right-20 bg-luxury-espresso text-luxury-ivory px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl pointer-events-none">{t('itinerary.callNow')}</span>
           </motion.a>
         </div>
         <motion.button
@@ -1487,10 +1537,9 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
           <div className="flex items-center justify-center gap-3">
             <Sparkles size={16} className="text-luxury-beige" />
             <span className="text-[10px] font-bold uppercase tracking-[0.4em] relative z-10">
-              {isSubmitting ? 'Processing...' : isSuccess ? 'Success' : t('itinerary.bookNow')}
+              {isSubmitting ? t('itinerary.processing') : isSuccess ? t('itinerary.success') : t('itinerary.bookNow')}
             </span>
           </div>
-          <div className="absolute inset-0 border border-luxury-ivory/20 rounded-full animate-pulse" />
         </motion.button>
       </div>
 

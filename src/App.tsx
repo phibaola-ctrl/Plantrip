@@ -273,7 +273,13 @@ export default function App() {
         }
       });
 
-      const result = JSON.parse(response.text || '{}');
+      let result;
+      try {
+        result = JSON.parse(response.text || '{}');
+      } catch (e) {
+        console.error("JSON Parse Error. Full response text:", response.text);
+        throw new Error("The AI returned an invalid response format. Please try again.");
+      }
       // Assign unique ID and image if missing
       result.id = Math.random().toString(36).substr(2, 9);
       result.image = `https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&q=80&w=800&q=80`; // Placeholder

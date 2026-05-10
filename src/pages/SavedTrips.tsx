@@ -26,7 +26,11 @@ export default function SavedTrips({ onSelect, onBack }: SavedTripsProps) {
   useEffect(() => {
     const saved = localStorage.getItem('saved_itineraries');
     if (saved) {
-      setSavedTrips(JSON.parse(saved));
+      try {
+        setSavedTrips(JSON.parse(saved));
+      } catch (error) {
+        console.error('Error parsing saved itineraries:', error);
+      }
     }
   }, []);
 
@@ -46,15 +50,15 @@ export default function SavedTrips({ onSelect, onBack }: SavedTripsProps) {
             <div className="w-1.5 h-1.5 bg-luxury-cacao rounded-full opacity-50" />
             <span>{t('nav.saved')}</span>
           </div>
-          <h1 className="text-6xl md:text-8xl font-serif font-bold text-luxury-espresso tracking-tighter">{t('savedTitle')}</h1>
-          <p className="text-xl text-luxury-espresso/60 max-w-xl leading-relaxed italic font-serif">{t('savedSub')}</p>
+          <h1 className="text-6xl md:text-8xl font-serif font-bold text-luxury-espresso tracking-tighter">{t('itinerary.savedTitle')}</h1>
+          <p className="text-xl text-luxury-espresso/60 max-w-xl leading-relaxed italic font-serif">{t('itinerary.savedSub')}</p>
         </div>
         
         <button 
           onClick={onBack}
           className="text-[10px] font-bold uppercase tracking-[0.3em] text-luxury-espresso/40 hover:text-luxury-espresso transition-colors"
         >
-          {t('savedBack')}
+          {t('itinerary.savedBack')}
         </button>
       </div>
 
@@ -68,16 +72,16 @@ export default function SavedTrips({ onSelect, onBack }: SavedTripsProps) {
             <Heart size={40} className="text-luxury-cacao/20" />
           </div>
           <div className="space-y-4">
-            <h3 className="text-3xl font-serif font-bold text-luxury-espresso">{t('savedEmpty')}</h3>
+            <h3 className="text-3xl font-serif font-bold text-luxury-espresso">{t('itinerary.savedEmpty')}</h3>
             <p className="text-luxury-espresso/40 max-w-md mx-auto leading-relaxed">
-              {t('savedEmptySub')}
+              {t('itinerary.savedEmptySub')}
             </p>
           </div>
           <button 
             onClick={onBack}
             className="px-12 py-5 bg-luxury-espresso text-luxury-ivory rounded-full text-[10px] font-bold uppercase tracking-[0.4em] hover:bg-luxury-espresso/90 transition-all shadow-xl shadow-luxury-espresso/10"
           >
-            {t('savedStart')}
+            {t('itinerary.savedStart')}
           </button>
         </motion.div>
       ) : (
@@ -151,7 +155,7 @@ export default function SavedTrips({ onSelect, onBack }: SavedTripsProps) {
 
                   <div className="pt-4 mt-auto">
                     <div className="w-full py-5 bg-luxury-bg border border-luxury-beige/30 rounded-2xl flex items-center justify-center gap-3 group-hover:bg-luxury-espresso group-hover:text-luxury-ivory transition-all duration-500">
-                      <span className="text-[10px] font-bold uppercase tracking-[0.3em]">{t('savedView')}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.3em]">{t('itinerary.savedView')}</span>
                       <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                     </div>
                   </div>
