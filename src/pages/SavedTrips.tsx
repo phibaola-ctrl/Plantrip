@@ -50,7 +50,7 @@ export default function SavedTrips({ onSelect, onBack }: SavedTripsProps) {
             <div className="w-1.5 h-1.5 bg-luxury-cacao rounded-full opacity-50" />
             <span>{t('nav.saved')}</span>
           </div>
-          <h1 className="text-6xl md:text-8xl font-serif font-bold text-luxury-espresso tracking-tighter">{t('itinerary.savedTitle')}</h1>
+          <h1 className="text-6xl md:text-8xl font-serif font-bold text-luxury-espresso leading-[1.1] tracking-tight">{t('itinerary.savedTitle')}</h1>
           <p className="text-xl text-luxury-espresso/60 max-w-xl leading-relaxed italic font-serif">{t('itinerary.savedSub')}</p>
         </div>
         

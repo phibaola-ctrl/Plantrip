@@ -14,6 +14,7 @@ import LoadingScreen from '@/src/pages/LoadingScreen';
 import ItineraryView from '@/src/pages/ItineraryView';
 import SavedTrips from '@/src/pages/SavedTrips';
 import EasterEggModal from '@/src/components/EasterEggModal';
+import Chatbot from '@/src/components/Chatbot';
 import { TripPreferences, Itinerary } from '@/src/types';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -110,6 +111,10 @@ export default function App() {
   const [showEasterEgg, setShowEasterEgg] = useState(false);
   const [pendingPrefs, setPendingPrefs] = useState<TripPreferences | null>(null);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [view]);
+
   const currentLang = i18n.language.split('-')[0];
   const langNames: Record<string, string> = {
     vi: 'Vietnamese',
@@ -170,7 +175,9 @@ export default function App() {
       
       For each activity, specify a "location" that is a specific, iconic landmark or public place (e.g., "Fushimi Inari-taisha" instead of just "Shrine") to ensure high-quality 360° visual previews.
       
-      Provide the response in the specified JSON format. Include:
+      Provide the response in the specified JSON format. 
+      IMPORTANT: Keep all text descriptions, summaries, and travel style notes concise (max 200 characters each). DO NOT use repetitive phrases or filler text.
+      Include:
       1. A summary of the trip style.
       2. 3-4 "Smart Insights" explaining why this trip fits the user.
       3. A detailed daily timeline (at least 3-4 activities per day).
@@ -185,10 +192,10 @@ export default function App() {
          "scams": [string]
       }
       7. "tourPrice": { "amount": string, "currency": string, "perPerson": boolean }
-      8. "tourIncludes": [string] (list of items included in the tour like flights, hotel, meals, etc.)
-      9. "tourExcludes": [string] (list of items NOT included)
-      10. "travelInsurance": { "coverage": string (compensation range), "benefits": [string] }
-      11. "tourNotes": [string] (general notes)
+      8. "tourIncludes": [string]
+      9. "tourExcludes": [string]
+      10. "travelInsurance": { "coverage": string, "benefits": [string] }
+      11. "tourNotes": [string]
       12. Total estimated cost with appropriate currency symbol.`;
 
       const ai = getAI();
@@ -196,7 +203,13 @@ export default function App() {
         model: "gemini-3-flash-preview",
         contents: prompt,
         config: {
+          systemInstruction: `You are an expert Luxury Travel Planner. 
+          Your goal is to create high-end, detailed travel itineraries.
+          Structure your response strictly according to the provided JSON schema.
+          Keep all text descriptions and summaries concise (max 200 characters).`,
           responseMimeType: "application/json",
+          temperature: 0.1,
+          maxOutputTokens: 12000,
           responseSchema: {
             type: Type.OBJECT,
             properties: {
@@ -260,7 +273,7 @@ export default function App() {
                           description: { type: Type.STRING },
                           location: { type: Type.STRING }
                         },
-                        required: ["time", "activity", "description"]
+                        required: ["time", "activity", "description", "location"]
                       }
                     }
                   },
@@ -268,30 +281,32 @@ export default function App() {
                 }
               }
             },
-            required: ["destination", "duration", "summary", "insights", "days", "alerts"]
+            required: ["destination", "duration", "summary", "insights", "days", "alerts", "travelInsights", "travelAlerts", "tourPrice"]
           }
         }
       });
 
-      let result;
+      const responseText = response.text || '';
+
+      let parsedData;
       try {
-        result = JSON.parse(response.text || '{}');
+        parsedData = JSON.parse(responseText);
       } catch (e) {
-        console.error("JSON Parse Error. Full response text:", response.text);
-        throw new Error("The AI returned an invalid response format. Please try again.");
+        console.error("JSON Parse Error. Full response text:", responseText);
+        throw new Error("THE AI RETURNED AN INVALID RESPONSE FORMAT. PLEASE TRY AGAIN.");
       }
       // Assign unique ID and image if missing
-      result.id = Math.random().toString(36).substr(2, 9);
-      result.image = `https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&q=80&w=800&q=80`; // Placeholder
+      parsedData.id = Math.random().toString(36).substr(2, 9);
+      parsedData.image = `https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&q=80&w=800&q=80`; // Placeholder
       
       const now = new Date().toISOString();
-      result.metadata = {
-        author: "AI Luxury Planner",
+      parsedData.metadata = {
+        author: "AI LUXURY PLANNER",
         createdAt: now,
         lastModified: now
       };
       
-      setItinerary(result);
+      setItinerary(parsedData);
       setView('result');
     } catch (err) {
       throw err;
@@ -394,6 +409,8 @@ export default function App() {
           {error}
         </div>
       )}
+
+      <Chatbot />
     </div>
   );
 }

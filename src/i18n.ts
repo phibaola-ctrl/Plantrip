@@ -141,9 +141,8 @@ const resources = {
         staysDesc: "LỰA CHỌN CÁC KHÔNG GIAN NGHỈ DƯỠNG DI SẢN VÀ CÁC ĐIỂM ĐẾN TINH HOA.",
         search: "TÌM KIẾM HÀNH TRÌNH",
         consult: "TƯ VẤN TRÍ TUỆ NHÂN TẠO",
-        footer: "© 2024 AI LUXURY TRAVEL PLANNER - THIẾT KẾ BỞI PHI LEGEND",
         optimized: "TUYẾN ĐƯỜNG TỐI ƯU",
-        curationNote: "GHI CHÚ QUẢN TUYỂN",
+        curationNote: "GHI CHÚ",
         localIntelligence: "LƯU Ý ĐIỂM ĐẾN",
         changeDates: "ĐỔI NGÀY",
         budgetControl: "QUẢN LÝ NGÂN SÁCH",
@@ -199,7 +198,7 @@ const resources = {
         bookingGuests: "SỐ LƯỢNG KHÁCH",
         bookingConfirm: "XÁC NHẬN ĐẶT CHỖ",
         bookingSuccessTitle: "GỬI YÊU CẦU THÀNH CÔNG!",
-        bookingSuccessMsg: "CHÚNG TÔI SẼ LIÊN HỆ VỚI BẠN TRONG VÒNG 30 PHÚT ĐỂ HOÀN THIỆN HÀNH TRÌNH.",
+        bookingSuccessMsg: "YÊU CẦU ĐẶT CHỖ CỦA BẠN ĐÃ ĐƯỢC GHI NHẬN. CHÚNG TÔI SẼ LIÊN HỆ LẠI SỚM NHẤT.",
         bookingDesc: "CHÚNG TÔI SẼ LIÊN HỆ VỚI BẠN SỚM NHẤT ĐỂ XÁC NHẬN DỊCH VỤ.",
         bookingClose: "ĐÓNG",
         bookingDemoNote: "DỮ LIỆU ĐƯỢC BẢO MẬT BỞI HỆ THỐNG AI",
@@ -236,6 +235,18 @@ const resources = {
         savedBtnActive: "ĐÃ LƯU",
         downloadBtn: "TẢI LỊCH TRÌNH",
         export: "TẢI LÊN HỒ SƠ"
+      },
+      chatbot: {
+        title: "TRỢ LÝ PLANTRIPGO",
+        welcome: "XIN CHÀO! TÔI LÀ TRỢ LÝ PLANTRIPGO. TÔI CÓ THỂ GIÚP GÌ CHO BẠN?",
+        placeholder: "NHẬP CÂU HỎI CỦA BẠN...",
+        send: "GỬI",
+        typing: "ĐANG TRẢ LỜI...",
+        faq1: "PLANTRIPGO LÀ GÌ?",
+        faq2: "LÀM THẾ NÀO ĐỂ LƯU LỊCH TRÌNH?",
+        faq3: "CHI PHÍ ƯỚC TÍNH CÓ CHÍNH XÁC KHÔNG?",
+        clearChat: "XÓA CUỘC TRÒ CHUYỆN",
+        fallback: "XIN LỖI, TÔI KHÔNG TÌM THẤY THÔNG TIN NÀY. BẠN CÓ THỂ LIÊN HỆ EMAIL: SUPPORT@PLANTRIPGO.COM"
       },
       general: {
         back: "QUAY VỀ",
@@ -363,8 +374,8 @@ const resources = {
         bookingNotes: "ADDITIONAL NOTES",
         bookingGuests: "NUMBER OF GUESTS",
         bookingConfirm: "CONFIRM RESERVATION",
-        bookingSuccessTitle: "RESERVATION RECEIVED",
-        bookingSuccessMsg: "AN EXPERT CONSULTANT WILL CONTACT YOU WITHIN 24 HOURS TO FINALIZE YOUR ITINERARY.",
+        bookingSuccessTitle: "RESERVATION RECEIVED!",
+        bookingSuccessMsg: "YOUR BOOKING REQUEST HAS BEEN RECORDED. WE WILL CONTACT YOU SHORTLY.",
         bookingClose: "CLOSE",
         bookingDemoNote: "DATA SECURED WITHIN SECURE ARCHIVES",
         tourDetails: {
@@ -411,7 +422,6 @@ const resources = {
         staysDesc: "RESERVE BESPOKE HERITAGE STAYS AND HAND-PICKED ARTISAN ENCOUNTERS.",
         search: "SEARCH ARCHIVE",
         consult: "CONSULT PLANTRIPGO AI",
-        footer: "WEBSITE BY GROUP 7 FOR E-TOURISM COURSE",
         optimized: "OPTIMIZED ROUTE",
         curationNote: "ITINERARY NOTES",
         localIntelligence: "LOCAL INTELLIGENCE",
@@ -448,6 +458,18 @@ const resources = {
           risks: "COMMON RISKS",
           scams: "SCAM ALERTS"
         }
+      },
+      chatbot: {
+        title: "PLANTRIPGO CONCIERGE",
+        welcome: "HELLO! I AM YOUR PLANTRIPGO ASSISTANT. HOW MAY I HELP YOU TODAY?",
+        placeholder: "TYPE YOUR MESSAGE...",
+        send: "SEND",
+        typing: "TYPING...",
+        faq1: "WHAT IS PLANTRIPGO?",
+        faq2: "HOW DO I SAVE MY ITINERARY?",
+        faq3: "IS THE ESTIMATED COST ACCURATE?",
+        clearChat: "CLEAR CONVERSATION",
+        fallback: "I APOLOGIZE, I COULDN'T FIND THAT INFORMATION. PLEASE CONTACT US AT: SUPPORT@PLANTRIPGO.COM"
       }
     }
   },
@@ -583,6 +605,9 @@ const resources = {
         placeholder_phone: "090-0000-0000",
         placeholder_email: "taro@yamada.com",
         location_placeholder: "場所の詳細を追加...",
+        savedBtn: "保存",
+        savedBtnActive: "保存済み",
+        downloadBtn: "ダウンロード",
         travelInsights: {
           title: "旅行の洞察",
           warnings: "実用的な警告",
@@ -594,6 +619,17 @@ const resources = {
           risks: "一般的なリスク",
           scams: "詐欺の警告"
         }
+      },
+      chatbot: {
+        title: "PLANTRIPGO コンシェルジュ",
+        welcome: "こんにちは！PLANTRIPGOアシスタントです。何かお手伝いできることはありますか？",
+        placeholder: "メッセージを入力してください...",
+        send: "送信",
+        typing: "入力中...",
+        faq1: "PLANTRIPGOとは何ですか？",
+        faq2: "旅程を保存するにはどうすればよいですか？",
+        faq3: "見積もり費用は正確ですか？",
+        fallback: "申し訳ありません。情報が見つかりませんでした。サポートチーム（SUPPORT@PLANTRIPGO.COM）までお問い合わせください。"
       }
     }
   },
@@ -728,6 +764,9 @@ const resources = {
         placeholder_phone: "010-0000-0000",
         placeholder_email: "chulsoo@kim.com",
         location_placeholder: "장소 세부 정보 추가...",
+        savedBtn: "저장",
+        savedBtnActive: "저장됨",
+        downloadBtn: "일정 다운로드",
         travelInsights: {
           title: "여행 인사이트",
           warnings: "실질적 경고",
@@ -739,6 +778,17 @@ const resources = {
           risks: "일반적인 위험",
           scams: "사기 경고"
         }
+      },
+      chatbot: {
+        title: "PLANTRIPGO 컨시어지",
+        welcome: "안녕하세요! PLANTRIPGO 어시스턴트입니다. 무엇을 도와드릴까요?",
+        placeholder: "메시지를 입력하세요...",
+        send: "전송",
+        typing: "답변 중...",
+        faq1: "PLANTRIPGO란 무엇인가요?",
+        faq2: "일정을 어떻게 저장하나요?",
+        faq3: "예상 비용이 정확한가요?",
+        fallback: "죄송합니다. 해당 정보를 찾을 수 없습니다. 지원팀에 문의해 주세요: SUPPORT@PLANTRIPGO.COM"
       }
     }
   },
@@ -848,7 +898,17 @@ const resources = {
         localIntelligence: "当地情报",
         spatialIndex: "空间索引",
         openAtlas: "开启地图",
-        footer: "Trang web thuộc nhóm 7 nhằm phục vụ môn học du lịch điện tử"
+      },
+      chatbot: {
+        title: "PLANTRIPGO 智能助手",
+        welcome: "您好！我是 PLANTRIPGO 助手。请问有什么可以帮您？",
+        placeholder: "输入消息...",
+        send: "发送",
+        typing: "正在输入...",
+        faq1: "什么是 PLANTRIPGO？",
+        faq2: "如何保存我的行程？",
+        faq3: "预估费用准确吗？",
+        fallback: "抱歉，未找到相关信息。请联系：SUPPORT@PLANTRIPGO.COM"
       }
     }
   },
@@ -975,7 +1035,32 @@ const resources = {
         placeholder_name: "Jean Dupont",
         placeholder_phone: "+33 6 00 00 00 00",
         placeholder_email: "jean.dupont@example.com",
-        location_placeholder: "Ajouter des détails sur l'emplacement..."
+        location_placeholder: "Ajouter des détails sur l'emplacement...",
+        savedBtn: "ENREGISTRER",
+        savedBtnActive: "ENREGISTRÉ",
+        downloadBtn: "TÉLÉCHARGER PDF",
+        travelInsights: {
+          title: "APERÇUS DE VOYAGE",
+          warnings: "AVERTISSEMENTS PRATIQUES",
+          tips: "CONSEILS D'EXPERTS"
+        },
+        travelAlerts: {
+          title: "ALERTES DE VOYAGE",
+          weather: "MÉTÉO SAISONNIÈRE",
+          risks: "RISQUES COURANTS",
+          scams: "ALERTES ARNAQUES"
+        }
+      },
+      chatbot: {
+        title: "PLANTRIPGO CONCIERGE",
+        welcome: "BONJOUR ! JE SUIS VOTRE ASSISTANT PLANTRIPGO. COMMENT PUIS-JE VOUS AIDER ?",
+        placeholder: "TAPEZ VOTRE MESSAGE...",
+        send: "ENVOYER",
+        typing: "RÉPONSE EN COURS...",
+        faq1: "QU'EST-CE QUE PLANTRIPGO ?",
+        faq2: "COMMENT ENREGISTRER MON ITINÉRAIRE ?",
+        faq3: "LE COÛT ESTIMÉ EST-IL PRÉCIS ?",
+        fallback: "JE M'EXCUSE, JE N'AI PAS TROUVÉ CETTE INFORMATION. VEUILLEZ NOUS CONTACTER À : SUPPORT@PLANTRIPGO.COM"
       }
     }
   },
@@ -1101,7 +1186,32 @@ const resources = {
         placeholder_name: "Juan Pérez",
         placeholder_phone: "+34 600 000 000",
         placeholder_email: "juan@perez.com",
-        location_placeholder: "Añadir detalles de ubicación..."
+        location_placeholder: "Añadir detalles de ubicación...",
+        savedBtn: "GUARDAR",
+        savedBtnActive: "GUARDADO",
+        downloadBtn: "DESCARGAR PDF",
+        travelInsights: {
+          title: "INFORMACIÓN DE VIAJE",
+          warnings: "ADVERTENCIAS PRÁCTICAS",
+          tips: "CONSEJOS DE EXPERTOS"
+        },
+        travelAlerts: {
+          title: "ALERTAS DE VIAJE",
+          weather: "CLIMA ESTACIONAL",
+          risks: "RIESGOS COMUNES",
+          scams: "ALERTAS DE ESTAFAS"
+        }
+      },
+      chatbot: {
+        title: "PLANTRIPGO CONCIERGE",
+        welcome: "¡HOLA! SOY TU ASISTENTE PLANTRIPGO. ¿CÓMO PUEDO AYUDARTE HOY?",
+        placeholder: "ESCRIBE TU MENSAJE...",
+        send: "ENVIAR",
+        typing: "ESCRIBIENDO...",
+        faq1: "¿QUÉ ES PLANTRIPGO?",
+        faq2: "¿CÓMO GUARDO MI ITINERARIO?",
+        faq3: "¿EL COSTO ESTIMADO ES EXACTO?",
+        fallback: "LO SIENTO, NO PUDE ENCONTRAR ESA INFORMACIÓN. POR FAVOR, CONTÁCTANOS EN: SUPPORT@PLANTRIPGO.COM"
       }
     }
   },
@@ -1227,7 +1337,32 @@ const resources = {
         placeholder_name: "Иван Иванов",
         placeholder_phone: "+7 900 000 00 00",
         placeholder_email: "ivan@ivanov.ru",
-        location_placeholder: "Добавить сведения о местоположении..."
+        location_placeholder: "Добавить сведения о местоположении...",
+        savedBtn: "СОХРАНИТЬ",
+        savedBtnActive: "СОХРАНЕНО",
+        downloadBtn: "СКАЧАТЬ PDF",
+        travelInsights: {
+          title: "ИНФОРМАЦИЯ О ПОЕЗДКЕ",
+          warnings: "ПРАКТИЧЕСКИЕ ПРЕДУПРЕЖДЕНИЯ",
+          tips: "СОВЕТЫ ЭКСПЕРТОВ"
+        },
+        travelAlerts: {
+          title: "ПРЕДУПРЕЖДЕНИЯ",
+          weather: "СЕЗОННАЯ ПОГОДА",
+          risks: "ОБЩИЕ РИСКИ",
+          scams: "ПРЕДУПРЕЖДЕНИЯ О МОШЕННИЧЕСТВЕ"
+        }
+      },
+      chatbot: {
+        title: "PLANTRIPGO КОНСЬЕРЖ",
+        welcome: "ЗДРАВСТВУЙТЕ! Я ВАШ ПОМОЩНИК PLANTRIPGO. ЧЕМ Я МОГУ ВАМ ПОМОЧЬ?",
+        placeholder: "ВВЕДИТЕ СООБЩЕНИЕ...",
+        send: "ОТПРАВИТЬ",
+        typing: "ПЕЧАТАЕТ...",
+        faq1: "ЧТО ТАКОЕ PLANTRIPGO?",
+        faq2: "КАК СОХРАНИТЬ МАРШРУТ?",
+        faq3: "НАСКОЛЬКО ТОЧНА ОЦЕНКА СТОИМОСТИ?",
+        fallback: "ИЗВИНИТЕ, ИНФОРМАЦИЯ НЕ НАЙДЕНА. СВЯЖИТЕСЬ С НАМИ: SUPPORT@PLANTRIPGO.COM"
       }
     }
   },
@@ -1353,7 +1488,32 @@ const resources = {
         placeholder_name: "สมชาย ใจดี",
         placeholder_phone: "081-000-0000",
         placeholder_email: "somchai@email.com",
-        location_placeholder: "เพิ่มรายละเอียดสถานที่..."
+        location_placeholder: "เพิ่มรายละเอียดสถานที่...",
+        savedBtn: "บันทึก",
+        savedBtnActive: "บันทึกแล้ว",
+        downloadBtn: "ดาวน์โหลด PDF",
+        travelInsights: {
+          title: "ข้อมูลเชิงลึกการเดินทาง",
+          warnings: "คำเตือนที่เป็นประโยชน์",
+          tips: "เคล็ดลับวงใน"
+        },
+        travelAlerts: {
+          title: "การแจ้งเตือนการเดินทาง",
+          weather: "สภาพอากาศตามฤดูกาล",
+          risks: "ความเสี่ยงทั่วไป",
+          scams: "การแจ้งเตือนการหลอกลวง"
+        }
+      },
+      chatbot: {
+        title: "ผู้ช่วย PLANTRIPGO",
+        welcome: "สวัสดีครับ ยินดีต้อนรับสู่ผู้ช่วย PLANTRIPGO มีอะไรให้ผมช่วยไหมครับ?",
+        placeholder: "พิมพ์ข้อความของคุณ...",
+        send: "ส่ง",
+        typing: "กำลังพิมพ์...",
+        faq1: "PLANTRIPGO คืออะไร?",
+        faq2: "บันทึกแผนการเดินทางอย่างไร?",
+        faq3: "ราคาประเมินแม่นยำไหม?",
+        fallback: "ขออภัยครับ ไม่พบข้อมูลดังกล่าว โปรดติดต่อเราที่: SUPPORT@PLANTRIPGO.COM"
       }
     }
   },
@@ -1479,7 +1639,21 @@ const resources = {
         placeholder_name: "ສົມສັກ",
         placeholder_phone: "020-0000-0000",
         placeholder_email: "somsak@email.com",
-        location_placeholder: "ເພີ່ມລາຍລະອຽດສະຖານທີ່..."
+        location_placeholder: "ເພີ່ມລາຍລະອຽດສະຖານທີ່...",
+        savedBtn: "ບັນທຶក",
+        savedBtnActive: "ບັນທຶកແລ້ວ",
+        downloadBtn: "ດາວໂຫລດ PDF",
+        travelInsights: {
+          title: "ຂໍ້ມູນເຈາະເລິກການເດີນທາງ",
+          warnings: "ຄໍາເຕືອນພາກປະຕິບັດ",
+          tips: "ຄໍາແນະນໍາຈາກພາຍໃນ"
+        },
+        travelAlerts: {
+          title: "ການແຈ້ງເຕືອນການເດີนທາງ",
+          weather: "ສະພາບອາກາດຕາມລະດູການ",
+          risks: "ຄວາມສ່ຽງທົ່ວໄປ",
+          scams: "ການແຈ້ງເຕືອນການຫຼອກລວງ"
+        }
       }
     }
   },
@@ -1606,6 +1780,17 @@ const resources = {
         placeholder_phone: "012-000-000",
         placeholder_email: "sokha@email.com",
         location_placeholder: "បន្ថែមព័ត៌មានលម្អិតអំពីទីតាំង..."
+      },
+      chatbot: {
+        title: "ជំនួយការ PLANTRIPGO",
+        welcome: "សួស្តី! ខ្ញុំជាជំនួយការ PLANTRIPGO។ តើមានអ្វីឱ្យខ្ញុំជួយទេ?",
+        placeholder: "វាយសាររបស់អ្នក...",
+        send: "ផ្ញើ",
+        typing: "កំពុងវាយ...",
+        faq1: "អ្វីទៅជា PLANTRIPGO?",
+        faq2: "តើត្រូវរក្សាទុកការធ្វើដំណើរដោយរបៀបណា?",
+        faq3: "តើតម្លៃប៉ាន់ស្មានត្រឹមត្រូវដែរឬទេ?",
+        fallback: "សូមអភ័យទោស ខ្ញុំរកមិនឃើញព័ត៌មាននោះទេ។ សូមទាក់ទងមកយើងខ្ញុំតាមរយៈ៖ SUPPORT@PLANTRIPGO.COM"
       }
     }
   }
@@ -1616,7 +1801,6 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: 'vi',
     fallbackLng: 'vi',
     interpolation: {
       escapeValue: false

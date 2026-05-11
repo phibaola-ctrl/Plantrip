@@ -18,7 +18,7 @@ export default function Landing({ onStart, onViewSaved }: LandingProps) {
         <div className="absolute bottom-[10%] left-[5%] w-[400px] h-[400px] bg-luxury-cacao/5 dark:bg-luxury-cacao/10 rounded-full blur-[100px]" />
       </div>
 
-      <main className="max-w-7xl mx-auto px-8 pt-40 pb-32 flex-1 flex flex-col items-center">
+      <main className="max-w-7xl mx-auto px-6 md:px-8 pt-20 md:pt-40 pb-20 md:pb-32 flex-1 flex flex-col items-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -30,11 +30,11 @@ export default function Landing({ onStart, onViewSaved }: LandingProps) {
             <span>{t('landing.badge')}</span>
           </div>
           
-          <h1 className="text-7xl md:text-9xl font-serif font-bold leading-[0.85] tracking-tighter text-luxury-espresso mb-10 whitespace-pre-line">
+          <h1 className="text-5xl sm:text-6xl md:text-8xl lg:text-[clamp(4rem,10vw,9rem)] font-serif font-bold leading-[1.2] tracking-tight text-luxury-espresso mb-10 whitespace-pre-line transition-all duration-700">
             {t('landing.titleMain')}
           </h1>
           
-          <p className="text-lg md:text-xl text-luxury-espresso/70 mb-12 max-w-2xl leading-relaxed font-medium capitalize">
+          <p className="text-lg md:text-xl text-luxury-espresso/70 mb-12 max-w-2xl leading-relaxed font-medium uppercase italic">
             {t('landing.description')}
           </p>
 
@@ -78,10 +78,6 @@ export default function Landing({ onStart, onViewSaved }: LandingProps) {
           ))}
         </div>
       </main>
-      
-      <footer className="max-w-7xl mx-auto w-full px-8 py-12 flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.4em] text-luxury-espresso/40">
-        <span>{t('itinerary.footer')}</span>
-      </footer>
     </div>
   );
 }

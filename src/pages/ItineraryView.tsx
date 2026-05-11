@@ -77,6 +77,11 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
   });
   const [guestError, setGuestError] = useState<string | null>(null);
 
+  const toggleBookingPanel = () => {
+    setShowBookingModal(!showBookingModal);
+    if (isSuccess) setIsSuccess(false);
+  };
+
   const handleGuestChange = (val: string) => {
     // Only allow digits
     const cleaned = val.replace(/[^0-9]/g, '');
@@ -206,17 +211,25 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
 
   useEffect(() => {
     if (showBookingModal) {
-      document.body.style.overflow = 'hidden';
-      const handleEsc = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
+      const handleClose = (e: MouseEvent | KeyboardEvent) => {
+        if (e instanceof KeyboardEvent && e.key === 'Escape') {
           setShowBookingModal(false);
-          setIsSuccess(false);
+          return;
+        }
+        
+        // Check if click is outside the panel
+        const panel = document.getElementById('booking-floating-panel');
+        const button = document.getElementById('booking-toggle-button');
+        if (panel && !panel.contains(e.target as Node) && button && !button.contains(e.target as Node)) {
+          setShowBookingModal(false);
         }
       };
-      window.addEventListener('keydown', handleEsc);
+      
+      window.addEventListener('mousedown', handleClose);
+      window.addEventListener('keydown', handleClose);
       return () => {
-        document.body.style.overflow = 'unset';
-        window.removeEventListener('keydown', handleEsc);
+        window.removeEventListener('mousedown', handleClose);
+        window.removeEventListener('keydown', handleClose);
       };
     }
   }, [showBookingModal]);
@@ -250,12 +263,6 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
         origin: { y: 0.6 },
         colors: ['#5A3E36', '#D8CBBE']
       });
-
-      // Automatically close success modal after 5 seconds if not closed manually
-      setTimeout(() => {
-        // Only close if success state is still showing
-        // Use a functional update or ref if needed, but simple closure is fine for this demo
-      }, 5000);
     }, 2000);
   };
 
@@ -411,14 +418,14 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(itinerary, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href",     dataStr);
-    downloadAnchorNode.setAttribute("download", `itinerary-${itinerary.destination}.json`);
+    downloadAnchorNode.setAttribute("download", `itinerary-${itinerary.destination.toLowerCase().replace(/\s+/g, '-')}.json`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
   };
 
   return (
-    <div className={cn("max-w-7xl mx-auto px-8 py-40 space-y-20", isPhiMode && "phi-theme")}>
+    <div className={cn("max-w-7xl mx-auto px-6 md:px-8 py-20 md:py-40 space-y-20", isPhiMode && "phi-theme")}>
       {isPhiMode && (
         <style dangerouslySetInnerHTML={{ __html: `
           .phi-theme .glass-luxury {
@@ -448,7 +455,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
               <div className="w-1.5 h-1.5 bg-luxury-cacao rounded-full opacity-50" />
               <span>{isPhiMode ? "Huyền thoại" : t('itinerary.archive')}</span>
             </div>
-            <h1 className="text-7xl md:text-9xl font-serif font-bold text-luxury-espresso leading-[0.85] tracking-tighter">
+            <h1 className="text-7xl md:text-9xl font-serif font-bold text-luxury-espresso leading-[1.1] tracking-tight">
               {itinerary.destination}
               {isPhiMode && <Crown size={64} className="inline-block ml-4 text-luxury-espresso align-top animate-bounce" />}
             </h1>
@@ -530,37 +537,6 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
           </div>
           
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-            <button 
-              onClick={() => setShowBookingModal(true)}
-              disabled={isSubmitting}
-              className="px-6 md:px-10 py-4 md:py-5 bg-luxury-espresso text-luxury-ivory rounded-full font-bold text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:bg-luxury-espresso/90 transition-all shadow-xl shadow-luxury-espresso/20 ring-4 ring-luxury-espresso/10 disabled:opacity-70"
-            >
-              <AnimatePresence mode="wait">
-                {isSubmitting ? (
-                  <motion.div 
-                    key="submitting"
-                    initial={{ opacity: 0 }} 
-                    animate={{ opacity: 1 }} 
-                    exit={{ opacity: 0 }}
-                    className="flex items-center gap-2"
-                  >
-                    <RefreshCw size={14} className="animate-spin" />
-                    <span>{t('itinerary.processing')}</span>
-                  </motion.div>
-                ) : (
-                  <motion.div 
-                    key="book"
-                    initial={{ opacity: 0 }} 
-                    animate={{ opacity: 1 }} 
-                    exit={{ opacity: 0 }}
-                    className="flex items-center gap-2"
-                  >
-                    <Ticket size={16} />
-                    <span>{isPhiMode ? "Phi" : t('itinerary.bookNow')}</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </button>
             <div className="flex gap-4">
               <button 
                 onClick={toggleFavorite}
@@ -587,197 +563,101 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
         </div>
       </div>
 
-      {/* Booking Modal */}
+      {/* Booking Floating Panel */}
       <AnimatePresence>
         {showBookingModal && (
-          <div 
-            className="fixed inset-0 z-[999] flex items-center justify-center p-4 md:p-8 bg-luxury-espresso/60 backdrop-blur-xl transition-all duration-500 overflow-y-auto"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setShowBookingModal(false);
-                setIsSuccess(false);
-              }
-            }}
+          <motion.div 
+            id="booking-floating-panel"
+            initial={{ opacity: 0, scale: 0.9, y: 20, x: 0 }}
+            animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20, x: 0 }}
+            className="fixed bottom-[100px] md:bottom-[120px] right-6 md:right-10 z-[100] w-[calc(100vw-48px)] sm:w-[400px] bg-luxury-bg rounded-3xl shadow-[0_20px_50px_rgba(59,42,37,0.2)] border border-luxury-beige/30 overflow-hidden"
           >
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 30 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 30 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="bg-luxury-bg w-full max-w-2xl rounded-[40px] md:rounded-[56px] overflow-hidden shadow-[0_32px_64px_-16px_rgba(59,42,37,0.3)] relative border border-luxury-beige/30 my-auto"
-            >
-              <button 
-                onClick={() => { setShowBookingModal(false); setIsSuccess(false); }}
-                className="absolute top-6 right-6 md:top-10 md:right-10 w-10 h-10 md:w-12 md:h-12 rounded-full bg-luxury-ivory/80 dark:bg-luxury-ivory/20 border border-luxury-beige/30 flex items-center justify-center text-luxury-espresso hover:bg-luxury-espresso hover:text-luxury-ivory transition-all z-20 group"
-              >
-                <X size={20} className="group-hover:rotate-90 transition-transform duration-300" />
-              </button>
-
-              <div className="p-8 md:p-20 space-y-8 md:space-y-12">
-                {isSuccess ? (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center space-y-8 md:space-y-10 py-6 md:py-10"
-                  >
-                    <div className="w-20 h-20 md:w-24 md:h-24 bg-green-500/10 rounded-3xl flex items-center justify-center mx-auto mb-8 ring-8 ring-green-500/5 rotate-3">
-                      <CheckCircle2 size={40} className="text-green-600" />
-                    </div>
-                    <div className="space-y-4">
-                      <h2 className="text-3xl md:text-5xl font-serif font-bold text-luxury-espresso">{isPhiMode ? "Phi" : t('itinerary.bookingSuccessTitle')}</h2>
-                      <p className="text-luxury-espresso/60 text-base md:text-lg leading-relaxed max-w-sm mx-auto">{isPhiMode ? "Phi" : t('itinerary.bookingSuccessMsg')}</p>
-                    </div>
-                    <div className="pt-6 md:pt-10">
-                      <button 
-                        onClick={() => { setShowBookingModal(false); setIsSuccess(false); }}
-                        className="w-full bg-luxury-espresso text-luxury-ivory py-5 md:py-6 rounded-2xl font-bold text-[10px] md:text-xs uppercase tracking-[0.4em] hover:bg-luxury-espresso/90 transition-all shadow-xl shadow-luxury-espresso/20"
-                      >
-                        {isPhiMode ? "Phi" : t('itinerary.bookingClose')}
-                      </button>
-                      <p className="text-[8px] md:text-[9px] text-luxury-cacao/40 uppercase tracking-widest mt-8 font-bold">{isPhiMode ? "Phi" : t('itinerary.bookingDemoNote')}</p>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3 text-luxury-beige">
-                        <Sparkles size={16} />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.3em]">{t('itinerary.bookNow')}</span>
-                      </div>
-                      <h2 className="text-3xl md:text-5xl font-serif font-bold text-luxury-espresso">{isPhiMode ? "Phi" : t('itinerary.bookingModalHeader')}</h2>
-                      <p className="text-luxury-espresso/60 text-sm md:text-lg leading-relaxed">{isPhiMode ? "Phi" : t('itinerary.bookingModalSub')}</p>
-                    </div>
-
-                    <form onSubmit={handleBookingSubmit} className="grid md:grid-cols-2 gap-6 md:gap-8 pt-2 md:pt-4">
-                      <div className="space-y-3">
-                        <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingName')}</label>
-                        <input 
-                          required
-                          value={bookingForm.name}
-                          onChange={e => setBookingForm(prev => ({ ...prev, name: e.target.value }))}
-                          className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all text-luxury-espresso placeholder:text-luxury-cacao/40"
-                          placeholder={isPhiMode ? "Phi" : t('itinerary.placeholder_name')}
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingPhone')}</label>
-                        <input 
-                          required
-                          value={bookingForm.phone}
-                          onChange={e => setBookingForm(prev => ({ ...prev, phone: e.target.value }))}
-                          className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all text-luxury-espresso placeholder:text-luxury-cacao/40"
-                          placeholder={isPhiMode ? "Phi" : t('itinerary.placeholder_phone')}
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingEmail')}</label>
-                        <input 
-                          required
-                          type="email"
-                          value={bookingForm.email}
-                          onChange={e => setBookingForm(prev => ({ ...prev, email: e.target.value }))}
-                          className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all text-luxury-espresso placeholder:text-luxury-cacao/40"
-                          placeholder={isPhiMode ? "Phi" : t('itinerary.placeholder_email')}
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingGuests')}</label>
-                        <div className="relative group/guest">
-                          <input 
-                            type="text"
-                            inputMode="numeric"
-                            value={bookingForm.guests}
-                            onChange={e => handleGuestChange(e.target.value)}
-                            className={cn(
-                              "w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-4 transition-all pr-24 text-luxury-espresso placeholder:text-luxury-cacao/30",
-                              guestError 
-                                ? "border-red-300 focus:ring-red-500/10" 
-                                : "border-luxury-beige/30 focus:border-luxury-espresso/30 focus:ring-luxury-espresso/5 focus:shadow-lg focus:shadow-luxury-espresso/5"
-                            )}
-                            placeholder={isPhiMode ? "Phi" : t('itinerary.placeholder_guests')}
-                          />
-                          <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-3 pointer-events-none">
-                            {bookingForm.guests && !guestError && (
-                              <span className="text-xs font-bold text-luxury-espresso/40 lowercase">
-                                {isPhiMode ? "Phi" : t('itinerary.guest_suffix')}
-                              </span>
-                            )}
-                            <User size={14} className={cn(
-                              "transition-colors duration-300",
-                              guestError ? "text-red-400" : "text-luxury-cacao opacity-40 group-focus-within/guest:text-luxury-espresso group-focus-within/guest:opacity-100"
-                            )} />
-                          </div>
-                        </div>
-                        {guestError && (
-                          <motion.p 
-                            initial={{ opacity: 0, y: -5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="text-[9px] font-bold text-red-500 uppercase tracking-widest ml-2"
-                          >
-                            {guestError}
-                          </motion.p>
-                        )}
-                      </div>
-                      <div className="space-y-3 md:col-span-2">
-                        <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingAddress')}</label>
-                        <input 
-                          value={bookingForm.address}
-                          onChange={e => setBookingForm(prev => ({ ...prev, address: e.target.value }))}
-                          className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all text-luxury-espresso"
-                          placeholder={t('itinerary.placeholder_address') || "Ví dụ: 123 Đường Lê Lợi, Quận 1, TP.HCM"}
-                        />
-                      </div>
-                      <div className="space-y-3 md:col-span-2">
-                        <label className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-2">{isPhiMode ? "Phi" : t('itinerary.bookingNotes')}</label>
-                        <textarea 
-                          value={bookingForm.notes}
-                          onChange={e => setBookingForm(prev => ({ ...prev, notes: e.target.value }))}
-                          className="w-full bg-luxury-ivory/60 dark:bg-luxury-ivory/20 border border-luxury-beige/30 rounded-2xl px-6 py-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all h-24 resize-none text-luxury-espresso"
-                          placeholder={t('itinerary.placeholder_notes') || "Yêu cầu đặc biệt khác (chế độ ăn uống, kỷ niệm, v.v.)"}
-                        />
-                      </div>
-                      <div className="md:col-span-2 pt-6">
-                        <button 
-                          disabled={isSubmitting}
-                          className="w-full relative bg-luxury-espresso text-luxury-ivory py-5 md:py-6 rounded-2xl font-bold text-[10px] md:text-xs uppercase tracking-[0.4em] overflow-hidden group hover:bg-luxury-espresso/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-xl shadow-luxury-espresso/20"
-                        >
-                          <AnimatePresence mode="wait">
-                            {isSubmitting ? (
-                              <motion.div 
-                                key="submitting"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="flex items-center justify-center gap-4"
-                              >
-                                <RefreshCw size={16} className="animate-spin" />
-                                <span>{isPhiMode ? "Phi" : t('itinerary.securingSelection')}</span>
-                              </motion.div>
-                            ) : (
-                              <motion.div 
-                                key="idle"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="flex items-center justify-center gap-2"
-                              >
-                                <Ticket size={16} />
-                                <span>{isPhiMode ? "Phi" : t('itinerary.bookingConfirm')}</span>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                          <div className="absolute inset-0 bg-white/5 skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                        </button>
-                        <p className="text-center text-[8px] md:text-[9px] text-luxury-cacao/40 uppercase tracking-[0.2em] mt-8 font-bold">
-                          {isPhiMode ? "Phi" : t('itinerary.secureVerification')}
-                        </p>
-                      </div>
-                    </form>
-                  </>
-                )}
+            <div className="p-6 md:p-8">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-2 text-luxury-gold">
+                  <Sparkles size={16} />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em]">{t('itinerary.bookNow')}</span>
+                </div>
+                <button 
+                  onClick={() => setShowBookingModal(false)}
+                  className="text-luxury-cacao/40 hover:text-luxury-espresso transition-colors"
+                >
+                  <X size={20} />
+                </button>
               </div>
-            </motion.div>
-          </div>
+
+              {isSuccess ? (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center py-4 space-y-4"
+                >
+                  <div className="w-16 h-16 bg-green-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle2 size={32} className="text-green-600" />
+                  </div>
+                  <h3 className="text-xl font-serif font-bold text-luxury-espresso">{t('itinerary.bookingSuccessTitle')}</h3>
+                  <p className="text-luxury-espresso/60 text-xs leading-relaxed">{t('itinerary.bookingSuccessMsg')}</p>
+                  <button 
+                    onClick={() => { setShowBookingModal(false); setIsSuccess(false); }}
+                    className="w-full mt-4 bg-luxury-espresso text-luxury-ivory py-4 rounded-xl font-bold text-[10px] uppercase tracking-[0.2em] hover:bg-luxury-espresso/90 transition-all"
+                  >
+                    {t('itinerary.bookingClose')}
+                  </button>
+                </motion.div>
+              ) : (
+                <form onSubmit={handleBookingSubmit} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-1">{t('itinerary.bookingName')}</label>
+                    <input 
+                      required
+                      value={bookingForm.name}
+                      onChange={e => setBookingForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="w-full bg-luxury-ivory/60 border border-luxury-beige/30 rounded-xl px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all text-luxury-espresso"
+                      placeholder={t('itinerary.placeholder_name')}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-1">{t('itinerary.bookingPhone')}</label>
+                    <input 
+                      required
+                      value={bookingForm.phone}
+                      onChange={e => setBookingForm(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full bg-luxury-ivory/60 border border-luxury-beige/30 rounded-xl px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all text-luxury-espresso"
+                      placeholder={t('itinerary.placeholder_phone')}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-bold text-luxury-cacao uppercase tracking-widest opacity-60 ml-1">{t('itinerary.bookingGuests')}</label>
+                    <input 
+                      type="text"
+                      inputMode="numeric"
+                      value={bookingForm.guests}
+                      onChange={e => handleGuestChange(e.target.value)}
+                      className="w-full bg-luxury-ivory/60 border border-luxury-beige/30 rounded-xl px-4 py-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-luxury-espresso/10 transition-all text-luxury-espresso"
+                      placeholder={t('itinerary.placeholder_guests')}
+                    />
+                  </div>
+                  <button 
+                    disabled={isSubmitting}
+                    className="w-full relative bg-luxury-espresso text-luxury-ivory py-4 rounded-xl font-bold text-[10px] uppercase tracking-[0.2em] overflow-hidden group hover:bg-luxury-espresso/90 transition-all disabled:opacity-70 mt-4 shadow-lg shadow-luxury-espresso/10"
+                  >
+                    {isSubmitting ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <RefreshCw size={14} className="animate-spin" />
+                        <span>{t('itinerary.securingSelection')}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2">
+                        <Ticket size={14} />
+                        <span>{t('itinerary.bookingConfirm')}</span>
+                      </div>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -786,7 +666,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
           {/* Timeline */}
           <div className="space-y-16">
             <div className="flex items-center justify-between border-b border-luxury-beige/30 pb-10">
-              <h2 className="text-5xl font-serif font-bold text-luxury-espresso">{isPhiMode ? "Phi" : t('itinerary.timeline')}</h2>
+              <h2 className="text-5xl font-serif font-bold text-luxury-espresso leading-[1.2]">{isPhiMode ? "Phi" : t('itinerary.timeline')}</h2>
               <span className="text-[10px] font-bold text-luxury-cacao/40 uppercase tracking-[0.4em]">{isPhiMode ? "Phi" : t('itinerary.optimized')}</span>
             </div>
 
@@ -954,18 +834,10 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
           >
             <div className="flex items-center justify-between">
               <div className="space-y-4">
-                <h2 className="text-5xl font-serif font-bold text-luxury-espresso">{t('itinerary.tourDetails.title')}</h2>
+                <h2 className="text-5xl font-serif font-bold text-luxury-espresso leading-[1.2]">{t('itinerary.tourDetails.title')}</h2>
                 <div className="w-24 h-1 bg-luxury-espresso/20 rounded-full" />
               </div>
-              {itinerary.tourPrice && (
-                <div className="text-right">
-                  <p className="text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.3em] opacity-40 mb-2">{t('itinerary.tourDetails.price')}</p>
-                  <p className="text-4xl font-serif font-bold text-luxury-espresso">
-                    {Number(itinerary.tourPrice.amount).toLocaleString('vi-VN')} VND
-                    {itinerary.tourPrice.perPerson && <span className="text-sm font-normal opacity-60 ml-2">/ {t('itinerary.tourDetails.perGuest')}</span>}
-                  </p>
-                </div>
-              )}
+
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
@@ -1256,7 +1128,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
             <div className="flex items-center gap-4">
               <div className="px-3 py-1 bg-white/10 rounded-lg text-[9px] font-bold uppercase tracking-[0.4em]">{isPhiMode ? "Phi" : t('itinerary.curationNote')}</div>
             </div>
-            <p className="text-3xl font-serif font-bold leading-[1.2] italic">{isPhiMode ? "Phi" : t('itinerary.insightText')}</p>
+            <p className="text-3xl font-serif font-bold leading-relaxed italic">{isPhiMode ? "Phi" : t('itinerary.insightText')}</p>
             <div className="space-y-8 pt-6">
               {itinerary.insights.map((insight, idx) => (
                 <div key={idx} className="flex gap-5 text-luxury-ivory/80">
@@ -1444,7 +1316,6 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
       
       <div className="pt-32 pb-12 text-center">
         <div className="w-24 h-px bg-luxury-beige/30 mx-auto mb-8" />
-        <p className="text-luxury-cacao/40 font-bold text-[9px] uppercase tracking-[0.5em]">{t('itinerary.footer')}</p>
       </div>
       {/* Metadata Section */}
       {itinerary.metadata && (
@@ -1525,22 +1396,24 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
             <Phone size={20} className="md:w-7 md:h-7" />
             <span className="absolute right-16 md:right-20 bg-luxury-espresso text-luxury-ivory px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl pointer-events-none">{t('itinerary.callNow')}</span>
           </motion.a>
+          <motion.button
+            id="booking-toggle-button"
+            onClick={toggleBookingPanel}
+            initial={{ scale: 0, x: 100 }}
+            animate={{ scale: 1, x: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.2 }}
+            className="px-6 md:px-10 py-5 md:py-6 bg-luxury-espresso text-luxury-ivory rounded-full shadow-2xl shadow-luxury-espresso/40 hover:scale-105 active:scale-95 transition-all relative group overflow-hidden ring-4 ring-luxury-espresso/10"
+          >
+            <div className="absolute inset-0 rounded-full bg-luxury-espresso animate-pulse opacity-20 scale-125" />
+            <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 skew-x-12" />
+            <div className="flex items-center justify-center gap-3">
+              <Sparkles size={16} className="text-luxury-beige" />
+              <span className="text-[10px] font-bold uppercase tracking-[0.4em] relative z-10">
+                {isSubmitting ? t('itinerary.processing') : isSuccess ? t('itinerary.success') : t('itinerary.bookNow')}
+              </span>
+            </div>
+          </motion.button>
         </div>
-        <motion.button
-          onClick={() => setShowBookingModal(true)}
-          initial={{ scale: 0, x: 100 }}
-          animate={{ scale: 1, x: 0 }}
-          transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.2 }}
-          className="px-6 md:px-10 py-5 md:py-6 bg-luxury-espresso text-luxury-ivory rounded-full shadow-2xl shadow-luxury-espresso/40 hover:scale-105 active:scale-95 transition-all relative group overflow-hidden ring-4 ring-luxury-espresso/10"
-        >
-          <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 skew-x-12" />
-          <div className="flex items-center justify-center gap-3">
-            <Sparkles size={16} className="text-luxury-beige" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.4em] relative z-10">
-              {isSubmitting ? t('itinerary.processing') : isSuccess ? t('itinerary.success') : t('itinerary.bookNow')}
-            </span>
-          </div>
-        </motion.button>
       </div>
 
     </div>

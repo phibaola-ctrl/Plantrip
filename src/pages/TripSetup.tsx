@@ -80,15 +80,15 @@ export default function TripSetup({ onSubmit, onBack }: TripSetupProps) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-8 py-40 min-h-screen flex flex-col justify-center">
-      <div className="mb-12">
+    <div className="max-w-4xl mx-auto px-6 md:px-8 py-10 md:py-40 min-h-screen flex flex-col">
+      <div className="mb-8 md:mb-12">
         <button onClick={onBack} className="flex items-center gap-3 text-luxury-espresso/60 hover:text-luxury-espresso transition-colors font-bold uppercase tracking-[0.3em] text-[10px]">
           <ChevronLeft size={16} />
           <span>{t('setup.exit')}</span>
         </button>
       </div>
 
-      <div className="flex gap-4 mb-24">
+      <div className="flex gap-4 mb-12 md:mb-24">
         {[1, 2, 3, 4].map(s => (
           <div 
             key={s} 
@@ -109,7 +109,7 @@ export default function TripSetup({ onSubmit, onBack }: TripSetupProps) {
         ))}
       </div>
 
-      <div className="min-h-[500px]">
+      <div className="flex-1 flex flex-col justify-center min-h-[400px] py-8">
         <AnimatePresence mode="wait">
           {step === 1 && (
             <motion.div
@@ -120,7 +120,7 @@ export default function TripSetup({ onSubmit, onBack }: TripSetupProps) {
               className="space-y-16"
             >
               <div>
-                <h2 className="text-6xl font-serif font-bold mb-6 text-luxury-espresso tracking-tight">{t('setup.step1.title')}</h2>
+                <h2 className="text-6xl font-serif font-bold mb-6 text-luxury-espresso leading-[1.2] tracking-tight">{t('setup.step1.title')}</h2>
                 <p className="text-luxury-cacao/60 text-xl font-medium italic tracking-wide">{t('setup.step1.subtitle')}</p>
               </div>
               <div className="space-y-16">
@@ -163,7 +163,7 @@ export default function TripSetup({ onSubmit, onBack }: TripSetupProps) {
               className="space-y-16"
             >
               <div>
-                <h2 className="text-6xl font-serif font-bold mb-6 text-luxury-espresso tracking-tight">{t('setup.step2.title')}</h2>
+                <h2 className="text-6xl font-serif font-bold mb-6 text-luxury-espresso leading-[1.2] tracking-tight">{t('setup.step2.title')}</h2>
                 <p className="text-luxury-cacao/60 text-xl font-medium italic">{t('setup.step2.subtitle')}</p>
               </div>
               <div className="grid grid-cols-2 gap-8">
@@ -200,7 +200,7 @@ export default function TripSetup({ onSubmit, onBack }: TripSetupProps) {
               className="space-y-16"
             >
               <div>
-                <h2 className="text-6xl font-serif font-bold mb-6 text-luxury-espresso tracking-tight">{t('setup.step3.title')}</h2>
+                <h2 className="text-6xl font-serif font-bold mb-6 text-luxury-espresso leading-[1.2] tracking-tight">{t('setup.step3.title')}</h2>
                 <p className="text-luxury-cacao/60 text-xl font-medium italic">{t('setup.step3.subtitle')}</p>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -237,7 +237,7 @@ export default function TripSetup({ onSubmit, onBack }: TripSetupProps) {
               className="space-y-16"
             >
               <div>
-                <h2 className="text-6xl font-serif font-bold mb-6 text-luxury-espresso tracking-tight">{t('setup.step4.title')}</h2>
+                <h2 className="text-6xl font-serif font-bold mb-6 text-luxury-espresso leading-[1.2] tracking-tight">{t('setup.step4.title')}</h2>
                 <p className="text-luxury-cacao/60 text-xl font-medium italic tracking-wide">{t('setup.step4.subtitle')}</p>
               </div>
               <div className="space-y-8">
