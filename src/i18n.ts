@@ -20,7 +20,7 @@ const resources = {
         explore: "KHÁM PHÁ KHO LƯU TRỮ",
         badge: "PLANTRIPGO - NƠI MỌI HÀNH TRÌNH ĐƯỢC BẮT ĐẦU ĐÚNG CÁCH",
         titleMain: "THIẾT KẾ HÀNH TRÌNH ĐÁNG NHỚ",
-        description: "KHÁM PHÁ THẾ GIỚI THEO CÁCH CỦA RIÊNG BẠN VỚI NHỮNG HÀNH TRÌNH ĐƯỢC THIẾT KẾ DÀNH RIÊNG CHO PHONG CÁCH VÀ CẢM HỨNG CÁ NHÂN. MỌI TRẢI NGHIỆM ĐỀU ĐƯỢC KIẾN TẠO TINH TẾ ĐỂ CHUYẾN ĐI TRỞ NÊN ĐÁNG NHỚ HƠN.",
+        description: "Khám phá thế giới theo cách của riêng bạn với những hành trình được thiết kế dành riêng cho phong cách và cảm hứng cá nhân. Mọi trải nghiệm đều được kiến tạo tinh tế để chuyến đi trở nên đáng nhớ hơn.",
         plan: "LẬP KẾ HOẠCH",
         gallery: "BỘ SƯU TẬP",
         heritage: "DI SẢN",
@@ -30,11 +30,11 @@ const resources = {
         authLabel: "CHỨNG THỰC",
         authValue: "TUYẾN ĐƯỜNG UY TÍN",
         feature1Title: "TUYỂN CHỌN TINH TẾ",
-        feature1Desc: "HỆ THỐNG TỰ ĐỘNG LỰA CHỌN CÁC ĐIỂM ĐẾN HỘI TỤ ĐỦ VẺ ĐẸP THẨM MỸ VÀ CHIỀU SÂU VĂN HÓA.",
+        feature1Desc: "Hệ thống tự động lựa chọn các điểm đến hội tụ đủ vẻ đẹp thẩm mỹ và chiều sâu văn hóa.",
         feature2Title: "LỘ TRÌNH TỐI ƯU",
-        feature2Desc: "SẮP XẾP LỘ TRÌNH THÔNG MINH NHẰM GIẢM THIỂU MỆT MỎI VÀ TỐI ƯU HÓA THỜI GIAN TRẢI NGHIỆM.",
+        feature2Desc: "Sắp xếp lộ trình thông minh nhằm giảm thiểu mệt mỏi và tối ưu hóa thời gian trải nghiệm.",
         feature3Title: "LƯU VÀ CHIA SẺ",
-        feature3Desc: "TẢI XUỐNG LỊCH TRÌNH VỚI TRÌNH BÀY CHUYÊN NGHIỆP, SẴN SÀNG CHO VIỆC LƯU GIỮ HOẶC CHIA SẺ."
+        feature3Desc: "Tải xuống lịch trình với trình bày chuyên nghiệp, sẵn sàng cho việc lưu giữ hoặc chia sẻ."
       },
       setup: {
         exit: "THOÁT QUY TRÌNH",
@@ -79,15 +79,15 @@ const resources = {
           budget: {
             modest: { 
               label: "TIẾT KIỆM", 
-              desc: "HÀNH TRÌNH LINH HOẠT, TẬP TRUNG VÀO TRẢI NGHIỆM CỐT LÕI." 
+              desc: "Hành trình linh hoạt, tập trung vào trải nghiệm cốt lõi." 
             },
             balanced: { 
               label: "CÂN BẰNG", 
-              desc: "TRẢI NGHIỆM KẾT HỢP GIỮA SỰ THOẢI MÁI VÀ GIÁ TRỊ." 
+              desc: "Trải nghiệm kết hợp giữa sự thoải mái và giá trị." 
             },
             luxury: { 
               label: "SANG TRỌNG", 
-              desc: "TIỆN NGHI THƯỢNG LƯU VÀ DỊCH VỤ CAO CẤP NHẤT." 
+              desc: "Tiện nghi thượng lưu và dịch vụ cao cấp nhất." 
             }
           }
         },
