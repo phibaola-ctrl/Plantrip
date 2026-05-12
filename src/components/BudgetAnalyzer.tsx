@@ -13,7 +13,10 @@ import {
   TrendingDown,
   ChevronRight,
   TrendingUp,
-  Coins
+  Coins,
+  Car,
+  Clock,
+  TrainFront
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -36,6 +39,7 @@ interface BudgetCategory {
   icon: React.ReactNode;
   color: string;
   percentage: number;
+  extraInfo?: string;
 }
 
 export default function BudgetAnalyzer({ itinerary, className }: BudgetAnalyzerProps) {
@@ -49,62 +53,129 @@ export default function BudgetAnalyzer({ itinerary, className }: BudgetAnalyzerP
     // AI Data Extraction
     let totalFromAI = 0;
     if (itinerary.tourPrice && itinerary.tourPrice.amount) {
-      // Remove dots, commas, currency symbols to get raw number
       const rawNumber = itinerary.tourPrice.amount.replace(/[^0-9]/g, '');
       totalFromAI = parseInt(rawNumber, 10) || 0;
-      
-      // If AI gave per person, we might want to scale if we knew guest count
-      // For now assume the AI gives a representative price
     }
 
-    // Base prices in VND (Approximate per person per day)
-    let dailyBase = 1500000; 
+    // Pricing Intelligence Engine
+    const pricingEngine = {
+      getTransportInfo: (dest: string, tripStyle: string) => {
+        let amount = 2500000; 
+        let confidence = 'High';
+        let mode = 'plane';
+        let time = '2h';
+        let label = t('itinerary.transportModes.plane');
+        let icon = <Plane size={18} />;
+
+        // Distance & Feasibility Check
+        const isThaiBinh = dest.includes('thái bình') || dest.includes('thai binh');
+        const isHanoi = dest.includes('hà nội') || dest.includes('hanoi');
+        const isSaigon = dest.includes('sài gòn') || dest.includes('hcmc') || dest.includes('saigon');
+        const isDaNang = dest.includes('đà nẵng') || dest.includes('da nang');
+
+        // Logic for specific routes (Simulated Distance Engine)
+        if (isThaiBinh) {
+          mode = 'limousine';
+          amount = 250000;
+          time = '1.5h - 2h';
+          label = t('itinerary.transportModes.limousine');
+          icon = <Bus size={18} />;
+        } else if (isHanoi && (dest.includes('hòa bình') || dest.includes('ninh bình') || dest.includes('vĩnh phúc'))) {
+          mode = 'car';
+          amount = 500000;
+          time = '1.5h';
+          label = t('itinerary.transportModes.car');
+          icon = <Car size={18} />;
+        } else {
+          // Region Identification
+          const isSEA = ['thailand', 'singapore', 'malaysia', 'bali', 'indonesia', 'philippines', 'cambodia', 'laos'].some(r => dest.includes(r));
+          const isAsia = ['japan', 'korea', 'china', 'taiwan', 'hong kong', 'india', 'dubai', 'maldives'].some(r => dest.includes(r));
+          const isWestern = ['usa', 'america', 'europe', 'france', 'paris', 'london', 'uk', 'germany', 'switzerland', 'australia', 'canada'].some(r => dest.includes(r));
+          
+          if (isWestern) {
+            amount = 35000000; 
+            confidence = 'Medium';
+            time = '12h-18h';
+          } else if (isAsia) {
+            amount = 12000000;
+            time = '4h-6h';
+          } else if (isSEA) {
+            amount = 5000000;
+            time = '2h-3h';
+          } else {
+            // Far Domestic
+            const isFarDomestic = (isSaigon || isDaNang || dest.includes('phú quốc') || dest.includes('con dao'));
+            amount = isFarDomestic ? 3500000 : 1800000;
+            time = '1h-2h';
+          }
+        }
+
+        // Style multiplier
+        if (tripStyle.includes('luxury')) amount *= 3.5;
+        else if (tripStyle.includes('premium')) amount *= 1.8;
+        
+        return { amount, confidence, mode, time, label, icon };
+      },
+      
+      getDailyBase: (dest: string, tripStyle: string) => {
+        let daily = 1200000; 
+        const expensiveDestinations = ['paris', 'tokyo', 'new york', 'london', 'zurich', 'singapore', 'hanoi', 'saigon', 'hcmc', 'da nang', 'phu quoc', 'maldive', 'dubai', 'venice', 'rome'];
+        if (expensiveDestinations.some(d => dest.includes(d))) daily *= 2.2;
+        
+        if (tripStyle.includes('budget')) daily *= 0.65;
+        else if (tripStyle.includes('premium')) daily *= 1.8;
+        else if (tripStyle.includes('luxury')) daily *= 4.2;
+
+        return daily;
+      }
+    };
+
+    const transInfo = pricingEngine.getTransportInfo(destination, style);
+    const dailyBase = pricingEngine.getDailyBase(destination, style);
     
-    // Destination Intelligence
-    const expensiveDestinations = ['paris', 'tokyo', 'new york', 'london', 'zurich', 'singapore', 'hanoi', 'saigon', 'hcmc', 'da nang', 'phu quoc', 'maldive', 'dubai'];
-    if (expensiveDestinations.some(d => destination.includes(d))) dailyBase *= 1.8;
-    
-    // Style multiplier
     let mult = 1.0;
-    if (style.includes('budget') || style.includes('tiết kiệm') || style.includes('modest')) mult = 0.6;
-    else if (style.includes('premium') || style.includes('cao cấp')) mult = 1.8;
-    else if (style.includes('luxury') || style.includes('sang trọng')) mult = 3.8;
+    if (style.includes('budget')) mult = 0.7;
+    else if (style.includes('premium')) mult = 1.8;
+    else if (style.includes('luxury')) mult = 4.0;
 
-    // Seasonal & Activity Analysis (AI logic)
     const activityCount = itinerary.days.reduce((acc, day) => acc + day.activities.length, 0);
-    const activityComplexity = activityCount / days; // more activities = more cost
-    if (activityComplexity > 4) mult *= 1.2;
-
-    // Scaling Logic
+    const activityComplexity = Math.max(1, activityCount / days);
+    
     let total = totalFromAI;
     if (total === 0) {
-      const hotelCost = dailyBase * 0.45 * mult * days;
-      const flightCost = mult > 3 ? 12000000 : mult > 1.5 ? 5000000 : 2500000;
-      const foodCost = dailyBase * 0.25 * mult * days;
-      const activityCost = dailyBase * 0.2 * mult * days;
-      const transportCost = dailyBase * 0.1 * mult * days;
-      const contingency = (hotelCost + foodCost + activityCost + transportCost) * 0.08;
+      const hotelCost = dailyBase * 0.45 * days;
+      const flightCost = transInfo.amount;
+      const foodCost = dailyBase * 0.3 * days;
+      const activityCost = dailyBase * 0.15 * activityComplexity * days;
+      const transportCost = dailyBase * 0.1 * days;
+      const contingency = (hotelCost + foodCost + activityCost + transportCost) * 0.1;
       total = hotelCost + flightCost + foodCost + activityCost + transportCost + contingency;
     }
 
-    // Proportional breakdown based on total
-    const hotelCost = total * 0.42;
-    const flightCost = total * 0.18;
-    const foodCost = total * 0.22;
-    const activityCost = total * 0.12;
-    const transportCost = total * 0.04;
-    const contingency = total * 0.02;
+    const hotelCost = total * 0.40;
+    const flightCost = total * 0.22;
+    const foodCost = total * 0.20;
+    const activityCost = total * 0.10;
+    const transportCost = total * 0.05;
+    const contingency = total * 0.03;
 
     const categories: BudgetCategory[] = [
       { name: t('itinerary.bookingHotels'), amount: hotelCost, icon: <Hotel size={18} />, color: '#3B2A25', percentage: (hotelCost / total) * 100 },
-      { name: t('itinerary.bookingFlights'), amount: flightCost, icon: <Plane size={18} />, color: '#5A3E36', percentage: (flightCost / total) * 100 },
+      { 
+        name: t('itinerary.bookingFlights'), 
+        amount: flightCost, 
+        icon: transInfo.icon, 
+        color: '#5A3E36', 
+        percentage: (flightCost / total) * 100,
+        extraInfo: `${transInfo.label} • ~${transInfo.time}` 
+      },
       { name: t('itinerary.bookingDining'), amount: foodCost, icon: <Utensils size={18} />, color: '#A57C00', percentage: (foodCost / total) * 100 },
       { name: t('itinerary.bookingActivities'), amount: activityCost, icon: <Ticket size={18} />, color: '#D8CBBE', percentage: (activityCost / total) * 100 },
       { name: t('itinerary.bookingTransport'), amount: transportCost, icon: <Bus size={18} />, color: '#C4B5A6', percentage: (transportCost / total) * 100 },
       { name: t('itinerary.contingency'), amount: contingency, icon: <ShieldAlert size={18} />, color: '#7E766D', percentage: (contingency / total) * 100 },
     ];
 
-    const savings = total * 0.12; 
+    const savings = total * 0.08; 
     
     return {
       categories,
@@ -112,7 +183,10 @@ export default function BudgetAnalyzer({ itinerary, className }: BudgetAnalyzerP
       savings,
       perPerson: total,
       dailyAvg: total / days,
-      level: mult <= 0.7 ? 'Budget' : mult <= 1.5 ? 'Standard' : mult <= 2.5 ? 'Premium' : 'Luxury'
+      level: mult <= 0.7 ? 'Budget' : mult <= 1.5 ? 'Standard' : mult <= 2.5 ? 'Premium' : 'Luxury',
+      confidence: transInfo.confidence,
+      transMode: transInfo.label,
+      transTime: transInfo.time
     };
   }, [itinerary, t]);
 
@@ -128,7 +202,22 @@ export default function BudgetAnalyzer({ itinerary, className }: BudgetAnalyzerP
             <Coins className="text-luxury-gold" size={24} />
             <h2 className="text-4xl md:text-5xl font-serif font-bold text-luxury-espresso">{t('itinerary.budgetAnalyzerTitle')}</h2>
           </div>
-          <p className="text-sm text-luxury-cacao/60 font-medium italic">{t('itinerary.budgetAnalyzerSub')}</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <p className="text-sm text-luxury-cacao/60 font-medium italic">{t('itinerary.budgetAnalyzerSub')}</p>
+            <div className="flex items-center gap-2 bg-luxury-gold/10 px-3 py-1 rounded-full border border-luxury-gold/20">
+              <Sparkles size={12} className="text-luxury-gold" />
+              <span className="text-[10px] font-bold text-luxury-gold uppercase tracking-wider">{t('itinerary.marketPriceLabel')}</span>
+            </div>
+            <div className="flex items-center gap-2 bg-luxury-espresso/5 px-3 py-1 rounded-full border border-luxury-espresso/10">
+              <div className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                budgetAnalysis.confidence === 'High' ? "bg-green-500" : "bg-amber-500"
+              )} />
+              <span className="text-[10px] font-bold text-luxury-espresso/60 uppercase tracking-wider">
+                {t('itinerary.confidenceLabel')}: {budgetAnalysis.confidence === 'High' ? t('itinerary.confidenceHigh') : t('itinerary.confidenceMed')}
+              </span>
+            </div>
+          </div>
         </div>
         
         <div className="flex items-center gap-4">
@@ -147,7 +236,6 @@ export default function BudgetAnalyzer({ itinerary, className }: BudgetAnalyzerP
       </div>
 
       <div className="grid lg:grid-cols-12 gap-8">
-        {/* Total Summary Card */}
         <div className="lg:col-span-12 xl:col-span-8 grid sm:grid-cols-3 gap-6">
           <motion.div 
             whileHover={{ y: -5 }}
@@ -189,7 +277,6 @@ export default function BudgetAnalyzer({ itinerary, className }: BudgetAnalyzerP
           </motion.div>
         </div>
 
-        {/* Chart Section */}
         <div className="lg:col-span-12 xl:col-span-4 bg-luxury-ivory p-8 rounded-[40px] border border-luxury-beige/30 shadow-xl min-h-[400px] flex flex-col items-center justify-center">
           <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-luxury-cacao/40 mb-8 self-start">{t('itinerary.costBreakdown')}</div>
           <div className="w-full h-full flex-1">
@@ -224,7 +311,6 @@ export default function BudgetAnalyzer({ itinerary, className }: BudgetAnalyzerP
           </div>
         </div>
 
-        {/* Detailed Breakdown Items */}
         <div className="lg:col-span-12 bg-white/40 backdrop-blur-md border border-luxury-beige/30 rounded-[48px] overflow-hidden">
           <div className="p-8 md:p-12 space-y-10">
             <div className="flex items-center gap-4">
@@ -252,11 +338,16 @@ export default function BudgetAnalyzer({ itinerary, className }: BudgetAnalyzerP
                       <div className="text-lg font-serif font-bold text-luxury-espresso">{formatVND(cat.amount)}</div>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-1 mb-4">
                     <span className="text-xs font-bold text-luxury-espresso/70">{cat.name}</span>
-                    <ChevronRight size={14} className="text-luxury-gold opacity-0 group-hover:opacity-100 transition-opacity" />
+                    {cat.extraInfo && (
+                      <div className="flex items-center gap-2 text-[9px] text-luxury-gold font-bold uppercase tracking-wider">
+                        <Clock size={10} />
+                        <span>{cat.extraInfo}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-4 h-1 w-full bg-luxury-beige/20 rounded-full overflow-hidden">
+                  <div className="mt-auto h-1 w-full bg-luxury-beige/20 rounded-full overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
                       whileInView={{ width: `${cat.percentage}%` }}

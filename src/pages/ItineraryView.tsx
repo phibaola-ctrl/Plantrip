@@ -1093,7 +1093,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
             <div className="flex items-center gap-4">
               <div className="px-3 py-1 bg-white/10 rounded-lg text-[9px] font-bold uppercase tracking-[0.4em]">{isPhiMode ? "Phi" : t('itinerary.curationNote')}</div>
             </div>
-            <p className="text-3xl font-serif font-bold leading-relaxed italic">{isPhiMode ? "Phi" : t('itinerary.insightText')}</p>
+            <p className="text-xl md:text-2xl font-serif font-bold leading-relaxed italic">{isPhiMode ? "Phi" : t('itinerary.insightText')}</p>
             <div className="space-y-8 pt-6">
               {itinerary.insights.map((insight, idx) => (
                 <div key={idx} className="flex gap-5 text-luxury-ivory/80">
