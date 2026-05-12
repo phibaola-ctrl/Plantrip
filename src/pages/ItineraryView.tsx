@@ -50,6 +50,7 @@ import { Itinerary, Activity } from '@/src/types';
 import confetti from 'canvas-confetti';
 import { cn } from '@/src/lib/utils';
 import MapView from '@/src/components/MapView';
+import BudgetAnalyzer from '@/src/components/BudgetAnalyzer';
 
 interface ItineraryViewProps {
   itinerary: Itinerary;
@@ -170,44 +171,6 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
   );
 
   const isPhiMode = itinerary.id === 'phi-ultimate';
-
-  // Budget State
-  const [expenses, setExpenses] = useState({
-    flights: 0,
-    accommodation: 0,
-    activities: 0,
-    food: 0
-  });
-
-  // Estimates based on travel style
-  const budgetData = useMemo(() => {
-    if (isPhiMode) {
-      return [
-        { category: 'Phi', estimated: 1000, actual: 1000, color: '#3B2A25' },
-        { category: 'Phi', estimated: 1000, actual: 1000, color: '#5A3E36' },
-        { category: 'Phi', estimated: 1000, actual: 1000, color: '#D8CBBE' },
-        { category: 'Phi', estimated: 1000, actual: 1000, color: '#C4B5A6' },
-      ];
-    }
-    const days = itinerary.duration || itinerary.days.length;
-    const style = itinerary.travelStyle?.toLowerCase() || 'luxury';
-    
-    let multipliers = { flights: 800, accommodation: 200, activities: 100, food: 80 }; // Default/Luxury
-    
-    if (style.includes('backpack')) multipliers = { flights: 500, accommodation: 50, activities: 30, food: 20 };
-    if (style.includes('adventure')) multipliers = { flights: 1000, accommodation: 150, activities: 200, food: 60 };
-    if (style.includes('family')) multipliers = { flights: 1200, accommodation: 300, activities: 150, food: 120 };
-
-    return [
-      { category: t('itinerary.bookingFlights'), estimated: multipliers.flights, actual: expenses.flights, color: '#3B2A25' },
-      { category: t('itinerary.bookingHotels'), estimated: multipliers.accommodation * days, actual: expenses.accommodation, color: '#5A3E36' },
-      { category: t('itinerary.bookingActivities'), estimated: multipliers.activities * days, actual: expenses.activities, color: '#D8CBBE' },
-      { category: t('itinerary.bookingDining'), estimated: multipliers.food * days, actual: expenses.food, color: '#C4B5A6' },
-    ];
-  }, [expenses, itinerary.duration, itinerary.days.length, itinerary.travelStyle, isPhiMode, t]);
-
-  const totalEstimated = budgetData.reduce((acc, curr) => acc + curr.estimated, 0);
-  const totalActual = budgetData.reduce((acc, curr) => acc + curr.actual, 0);
 
   useEffect(() => {
     if (showBookingModal) {
@@ -465,7 +428,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
             </p>
 
             <div className="flex items-center gap-6 pt-4">
-              <span className="text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.3em] opacity-40">Rating</span>
+              <span className="text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.3em] opacity-40">{t('itinerary.ratingLabel', { defaultValue: 'ĐÁNH GIÁ' })}</span>
               <StarRating rating={overallRating} onRate={handleRateOverall} size={24} />
               {overallRating > 0 && (
                 <span className="text-sm font-serif font-bold text-luxury-espresso italic">{overallRating}/5</span>
@@ -661,6 +624,8 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
         )}
       </AnimatePresence>
 
+      <BudgetAnalyzer itinerary={itinerary} />
+
       <div className="grid lg:grid-cols-12 gap-12">
         <div className="lg:col-span-8 space-y-24">
           {/* Timeline */}
@@ -851,7 +816,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                 </div>
                 <div className="grid gap-4">
                   {(itinerary.tourIncludes || [
-                    "Flights", "5* Resort", "All meals", "LAGoon tour", "Insurance"
+                    "Vé máy bay khứ hồi", "Lưu trú resort 5 sao", "Tất cả các bữa ăn tinh hoa", "Tour trải nghiệm bản địa", "Bảo hiểm du lịch cao cấp"
                   ]).map((item, idx) => (
                     <div key={idx} className="flex items-center gap-4 text-luxury-espresso/80 font-medium group">
                       <div className="w-5 h-5 rounded-full border border-green-500/30 flex items-center justify-center group-hover:bg-green-500 transition-colors">
@@ -873,7 +838,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                 </div>
                 <div className="grid gap-4">
                   {(itinerary.tourExcludes || [
-                    "Visa", "Personal tips", "VAT"
+                    "Thị thực nhập cảnh", "Tiền tip cho hướng dẫn viên", "Chi phí cá nhân ngoài chương trình"
                   ]).map((item, idx) => (
                     <div key={idx} className="flex items-center gap-4 text-luxury-espresso/80 font-medium group">
                       <div className="w-5 h-5 rounded-full border border-red-500/30 flex items-center justify-center group-hover:bg-red-500 transition-colors">
@@ -907,7 +872,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                     <p className="text-[10px] font-bold text-luxury-cacao uppercase tracking-widest opacity-40 mb-6">{t('itinerary.tourDetails.benefits')}</p>
                     <div className="grid sm:grid-cols-2 gap-4">
                       {(itinerary.travelInsurance?.benefits || [
-                        "Medical support", "Global 24/7", "Loss baggage", "Emergency flight"
+                        "Hỗ trợ y tế khẩn cấp", "HOTLINE hỗ trợ 24/7", "Bồi hoàn hành lý thất lạc", "Chuyến bay cấp cứu"
                       ]).map((benefit, idx) => (
                         <div key={idx} className="flex items-center gap-3 text-luxury-espresso/70 text-sm font-medium">
                           <Sparkles size={14} className="text-luxury-beige" />
@@ -927,8 +892,8 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                 </div>
                 <ul className="grid sm:grid-cols-2 gap-6">
                   {(itinerary.tourNotes || [
-                    "Please arrive 3 hours before flight.",
-                    "Dress formally for mansion dinners."
+                    "Quý khách vui lòng có mặt tại sân bay 3 tiếng trước giờ khởi hành.",
+                    "Trang phục trang trọng cho các bữa tối tại nhà hàng."
                   ]).map((note, idx) => (
                     <li key={idx} className="flex items-start gap-4 text-luxury-espresso/70 text-sm leading-relaxed">
                       <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 shrink-0" />
@@ -1066,7 +1031,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                           <h4 className="font-bold text-[10px] uppercase tracking-widest">{t('itinerary.travelAlerts.scams')}</h4>
                         </div>
                         <div className="space-y-2">
-                          {(itinerary.travelAlerts?.scams || ["Overtipping", "Unlicensed guides"]).map((s, i) => (
+                          {(itinerary.travelAlerts?.scams || ["Tiền tip quá cao", "Hướng dẫn viên lậu", "Giá taxi không niêm yết"]).map((s, i) => (
                             <p key={i} className="text-sm text-red-900/70 dark:text-red-200/70 leading-relaxed font-medium">
                                • {s}
                             </p>
@@ -1151,102 +1116,6 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                   " {alert} "
                 </p>
               ))}
-            </div>
-          </div>
-
-          {/* Budget Tracker */}
-          <div className="bg-luxury-ivory dark:bg-luxury-ivory/20 border border-luxury-beige/30 p-12 rounded-[56px] space-y-10 shadow-xl shadow-luxury-beige/5 transition-colors duration-500">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <PieChart size={18} className="text-luxury-cacao opacity-60" />
-                <h3 className="text-[10px] font-bold uppercase tracking-[0.4em] text-luxury-cacao opacity-60">{isPhiMode ? "Phi" : t('itinerary.budgetControl')}</h3>
-              </div>
-              <div className={cn(
-                "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                totalActual > totalEstimated ? "bg-red-500/10 text-red-600" : "bg-green-500/10 text-green-600"
-              )}>
-                <DollarSign size={14} />
-              </div>
-            </div>
-
-            <div className="space-y-8">
-              <div className="h-[200px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={budgetData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                    <XAxis 
-                      dataKey="category" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: 'var(--luxury-espresso)', fontSize: 8, fontWeight: 'bold' }} 
-                    />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: 'var(--luxury-espresso)', fontSize: 8, opacity: 0.3 }}
-                      tickFormatter={(value) => (value * 1000).toLocaleString('vi-VN')}
-                    />
-                    <Tooltip 
-                      cursor={{ fill: 'rgba(0,0,0,0.02)' }}
-                      contentStyle={{ 
-                        backgroundColor: 'var(--luxury-ivory)', 
-                        borderRadius: '12px', 
-                        border: '1px solid var(--luxury-beige)',
-                        boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-                        fontSize: '10px'
-                      }}
-                      formatter={(value: number) => [`${(value * 1000).toLocaleString('vi-VN')} VND`]}
-                    />
-                    <Bar dataKey="estimated" name="Est." fill="#D8CBBE" radius={[4, 4, 0, 0]} barSize={12} />
-                    <Bar dataKey="actual" name="Spent" radius={[4, 4, 0, 0]} barSize={12}>
-                      {budgetData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.actual > entry.estimated ? '#ef4444' : '#3B2A25'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 pb-4 border-b border-luxury-beige/10">
-                <div className="space-y-1">
-                  <div className="text-[8px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">{t('itinerary.estimatedLabel')}</div>
-                  <div className="text-xl font-serif font-bold text-luxury-espresso">{(totalEstimated * 1000).toLocaleString('vi-VN')} VND</div>
-                </div>
-                <div className="space-y-1 text-right">
-                  <div className="text-[8px] font-bold uppercase tracking-widest text-luxury-cacao opacity-40">{t('itinerary.actualSpent')}</div>
-                  <div className={cn(
-                    "text-xl font-serif font-bold",
-                    totalActual > totalEstimated ? "text-red-600" : "text-luxury-espresso"
-                  )}>{(totalActual * 1000).toLocaleString('vi-VN')} VND</div>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                {[
-                  { id: 'flights', label: isPhiMode ? "Phi" : t('itinerary.bookingFlights'), icon: <Plane size={14} /> },
-                  { id: 'accommodation', label: isPhiMode ? "Phi" : t('itinerary.bookingHotels'), icon: <Hotel size={14} /> },
-                  { id: 'activities', label: isPhiMode ? "Phi" : t('itinerary.bookingActivities'), icon: <Ticket size={14} /> },
-                  { id: 'food', label: isPhiMode ? "Phi" : t('itinerary.bookingDining'), icon: <Utensils size={14} /> },
-                ].map((item) => (
-                  <div key={item.id} className="group flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-luxury-bg/50 flex items-center justify-center text-luxury-cacao">
-                        {item.icon}
-                      </div>
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-luxury-espresso opacity-60">{item.label}</span>
-                    </div>
-                    <div className="flex items-center gap-2 group/input">
-                      <input 
-                        type="number"
-                        value={expenses[item.id as keyof typeof expenses] || ''}
-                        onChange={(e) => setExpenses(prev => ({ ...prev, [item.id]: parseFloat(e.target.value) || 0 }))}
-                        className="w-24 bg-transparent border-b border-luxury-beige/20 py-1 px-1 text-right text-xs font-bold text-luxury-espresso focus:outline-none focus:border-luxury-espresso transition-colors"
-                        placeholder="0"
-                      />
-                      <span className="text-[10px] font-bold tracking-widest text-luxury-cacao opacity-40">VND</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
 
