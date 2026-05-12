@@ -174,6 +174,8 @@ const resources = {
         },
         budgetInsightTitle: "NHẬN ĐỊNH NGÂN SÁCH THÔNG MINH",
         budgetInsightDesc: "AI ĐÃ PHÂN TÍCH {{days}} NGÀY HOẠT ĐỘNG TẠI {{destination}} ĐỂ TỐI ƯU HÓA CÁC CHI PHÍ NÀY.",
+        replanBudget: "CẬP NHẬT NGÂN SÁCH",
+        editBudgetHint: "CẬP NHẬT NGÂN SÁCH ĐỂ AI TỐI ƯU HÓA...",
         optimizeFurther: "TỐI ƯU HÓA THÊM",
         ofTotal: "TỔNG CHI PHÍ",
         mode: "CHẾ ĐỘ",
