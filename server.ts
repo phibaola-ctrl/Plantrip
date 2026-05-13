@@ -1,10 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { GoogleGenAI } from "@google/genai";
 
 async function startServer() {
   const app = express();
@@ -16,6 +13,57 @@ async function startServer() {
   // API Health Check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", time: new Date().toISOString() });
+  });
+
+  // Gemini Chat Proxy
+  app.post("/api/chat", async (req, res) => {
+    const { messages, text, language } = req.body;
+    
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: "GEMINI_API_KEY is not configured" });
+    }
+
+    try {
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+
+      const systemInstruction = `
+        You are the official AI Concierge for PLANTRIPGO, a luxury AI Travel Planner.
+        Your tone: Professional, sophisticated, helpful, and slightly "artisan".
+        
+        Website Context:
+        - PLANTRIPGO creates bespoke 7-day itineraries (default) using AI.
+        - Features: "Artisan Logic" (cultural depth), "Minimal Transit" (efficient routes), "Heritage Export" (beautiful PDFs).
+        - Creator: PHI LEGEND.
+        - Answer in ${language === 'vi' ? 'Vietnamese' : 'English'}.
+      `;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [
+          ...messages.map((m: any) => ({
+            role: m.role === 'user' ? 'user' : 'model',
+            parts: [{ text: m.text }],
+          })),
+          { role: 'user', parts: [{ text }] }
+        ],
+        config: {
+          systemInstruction,
+          temperature: 0.7,
+        }
+      });
+
+      res.json({ text: response.text });
+    } catch (error: any) {
+      console.error("Gemini API Error:", error);
+      res.status(500).json({ error: "AI failed to respond", details: error.message });
+    }
   });
 
   // Geocoding Proxy

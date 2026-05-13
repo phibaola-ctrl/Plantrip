@@ -1,10 +1,10 @@
 {
-  "name": "Plantripgo",
-  "description": "A sophisticated AI-powered travel planner that crafts personalized itineraries with smart insights and interactive schedules.",
-  "requestFramePermissions": [],
+  "name": "PLANTRIPGO",
+  "description": "Bespoke luxury travel itineraries crafted by artisan AI. Experience high-end planning with minimal transit and heritage export features.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
   "majorCapabilities": [
-    "AI Trip Planning",
-    "Interactive Itineraries",
-    "Smart Budgeting"
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]
 }
