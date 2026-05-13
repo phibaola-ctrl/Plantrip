@@ -1,45 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  MapPin, 
-  AlertTriangle, 
-  Download, 
-  RefreshCw,
-  Info,
-  Map as MapIcon,
-  CheckCircle2,
-  Circle,
-  Edit3,
-  Check,
-  X,
-  Heart,
-  Plane,
-  Hotel,
-  Ticket,
-  User,
-  ChevronRight,
-  Calendar,
-  Clock,
-  DollarSign,
-  PieChart,
-  Utensils,
-  Crown,
-  Sparkles,
-  Star,
-  Lightbulb,
-  CloudRain,
-  TrendingDown,
-  ShieldAlert,
-  ChevronDown,
-  ChevronUp,
-  Phone,
-  MessageCircle
-} from 'lucide-react';
+import { MapPin, Map as MapIcon, Navigation, ExternalLink, LocateFixed, Search, X as XIcon, AlertTriangle, Download, RefreshCw, Info, CheckCircle2, Circle, Edit3, Check, X, Heart, Plane, Hotel, Ticket, User, ChevronRight, Calendar, Clock, DollarSign, PieChart, Utensils, Crown, Sparkles, Star, Lightbulb, CloudRain, TrendingDown, ShieldAlert, ChevronDown, ChevronUp, Phone, MessageCircle } from 'lucide-react';
 import { Itinerary, Activity } from '@/src/types';
 import confetti from 'canvas-confetti';
 import { cn } from '@/src/lib/utils';
 import MapView from '@/src/components/MapView';
+import { geocodeLocation, GeoLocation } from '@/src/services/geocodingService';
 
 interface ItineraryViewProps {
   itinerary: Itinerary;
@@ -49,11 +16,12 @@ interface ItineraryViewProps {
 export default function ItineraryView({ itinerary: initialItinerary, onRestart }: ItineraryViewProps) {
   const { t } = useTranslation();
   const [itinerary, setItinerary] = useState<Itinerary>(initialItinerary);
-  const [showMap, setShowMap] = useState(false);
   const [completedActivities, setCompletedActivities] = useState<Set<string>>(new Set());
   const [isFavorite, setIsFavorite] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [mapLocations, setMapLocations] = useState<GeoLocation[]>([]);
+  const [isLoadingCoords, setIsLoadingCoords] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -337,25 +305,44 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
   };
 
   const allActivities = useMemo(() => {
-    const acts: { activity: string; description: string; location?: string }[] = [];
-    itinerary.days.forEach(day => {
-      day.activities.forEach(activity => {
-        acts.push(activity);
+    const acts: (Activity & { dayIdx: number; actIdx: number })[] = [];
+    itinerary.days.forEach((day, dIdx) => {
+      day.activities.forEach((activity, aIdx) => {
+        acts.push({ ...activity, dayIdx: dIdx, actIdx: aIdx });
       });
     });
-    return acts.slice(0, 8); // Display first 8 points for clarity
+    return acts;
   }, [itinerary]);
 
-  const allLocations = useMemo(() => {
-    const locs: string[] = [];
-    itinerary.days.forEach(day => {
-      day.activities.forEach(activity => {
-        if (activity.location) locs.push(`${activity.location}, ${itinerary.destination}`);
-        else locs.push(`${activity.activity}, ${itinerary.destination}`);
-      });
-    });
-    return Array.from(new Set(locs)).slice(0, 8);
-  }, [itinerary]);
+  useEffect(() => {
+    const fetchCoords = async () => {
+      setIsLoadingCoords(true);
+      const locs: GeoLocation[] = [];
+      
+      // Process activities in chunks to respect Nominatim usage policy
+      for (const act of allActivities) {
+        const query = act.location ? `${act.location}, ${itinerary.destination}` : `${act.activity}, ${itinerary.destination}`;
+        const coords = await geocodeLocation(query);
+        if (coords) {
+          locs.push({
+            id: `${act.dayIdx}-${act.actIdx}`,
+            name: act.activity,
+            lat: coords.lat,
+            lng: coords.lng,
+            description: act.description,
+            time: act.time
+          });
+        }
+      }
+      
+      setMapLocations(locs);
+      setIsLoadingCoords(false);
+    };
+
+    fetchCoords();
+  }, [allActivities, itinerary.destination]);
+
+  const selectedMarkerId = useMemo(() => highlightedId, [highlightedId]);
 
   useEffect(() => {
     confetti({
@@ -420,19 +407,6 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
     downloadAnchorNode.remove();
     URL.revokeObjectURL(url);
   };
-
-  const selectedMarkerId = useMemo(() => {
-    if (!highlightedId) return null;
-    let flatIdx = -1;
-    let found = false;
-    itinerary.days.forEach((day, dIdx) => {
-      day.activities.forEach((_, aIdx) => {
-        if (!found) flatIdx++;
-        if (`${dIdx}-${aIdx}` === highlightedId) found = true;
-      });
-    });
-    return found ? `marker-${flatIdx}` : null;
-  }, [highlightedId, itinerary.days]);
 
   return (
     <div className={cn("max-w-7xl mx-auto px-6 md:px-8 py-20 md:py-40 space-y-20", isPhiMode && "phi-theme")}>
@@ -1135,47 +1109,37 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
           </div>
 
           {/* Journey Map Section */}
-          <div className="space-y-12">
-            <div className="flex items-center justify-between border-b border-luxury-beige/30 pb-10">
-              <div className="space-y-2">
-                <h2 className="text-5xl font-serif font-bold text-luxury-espresso">{isPhiMode ? "Phi" : t('itinerary.mapHeader')}</h2>
-                <p className="text-sm text-luxury-cacao/60 font-medium italic">{isPhiMode ? "Phi" : t('itinerary.spatialDesc')}</p>
+          <div className="space-y-12 pt-12 border-t border-luxury-beige/30">
+            <div className="flex items-center justify-between">
+              <div className="space-y-4">
+                <h2 className="text-5xl font-serif font-bold text-luxury-espresso leading-[1.2]">{t('itinerary.mapHeader')}</h2>
+                <div className="w-24 h-1 bg-luxury-espresso/20 rounded-full" />
+                <p className="text-sm text-luxury-cacao/60 font-medium italic">{t('itinerary.spatialDesc')}</p>
               </div>
-              <div className="flex items-center gap-3 px-6 py-3 bg-luxury-bg rounded-full border border-luxury-beige/30">
-                <MapIcon size={14} className="text-luxury-espresso" />
-                <span className="text-[10px] font-bold text-luxury-espresso uppercase tracking-widest">{isPhiMode ? "Phi" : `${allLocations.length} ${t('itinerary.points')}`}</span>
+              <div className="flex items-center gap-3 px-6 py-3 bg-luxury-ivory/60 border border-luxury-beige/30 rounded-2xl">
+                <div className={cn("w-2 h-2 rounded-full animate-pulse", isLoadingCoords ? "bg-amber-400" : "bg-green-500")} />
+                <span className="text-[10px] font-bold text-luxury-espresso uppercase tracking-widest">
+                  {isLoadingCoords ? "Đang tìm tọa độ..." : `${mapLocations.length} ${t('itinerary.points')}`}
+                </span>
               </div>
             </div>
             
+            <div className="relative rounded-[56px] overflow-hidden border border-luxury-beige/30 shadow-2xl glass-luxury">
               <MapView 
-                locations={allLocations} 
+                locations={mapLocations} 
                 destination={itinerary.destination} 
-                activities={allActivities} 
                 selectedId={selectedMarkerId}
-                onPointSelect={(idx) => {
-                  if (idx === -1) {
-                    setHighlightedId(null);
-                    return;
+                onPointSelect={(id) => {
+                  setHighlightedId(id);
+                  if (id) {
+                    const el = document.getElementById(`activity-${id}`);
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
                   }
-                  // Determine day index and activity index from flat allActivities list
-                  let count = 0;
-                  itinerary.days.forEach((day, dIdx) => {
-                    day.activities.forEach((_, aIdx) => {
-                      if (count === idx) {
-                        const id = `${dIdx}-${aIdx}`;
-                        setHighlightedId(id);
-                        
-                        // Find element and scroll to it
-                        const el = document.getElementById(`activity-${dIdx}-${aIdx}`);
-                        if (el) {
-                          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                      }
-                      count++;
-                    });
-                  });
                 }}
               />
+            </div>
           </div>
         </div>
 

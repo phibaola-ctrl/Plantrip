@@ -1,367 +1,294 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
-import MarkerClusterGroup from 'react-leaflet-cluster';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapPin, Info, Navigation, Sun, Moon, Maximize, X } from 'lucide-react';
-import { useTheme } from '@/src/lib/ThemeContext';
+import { MapPin, Navigation, Maximize, ExternalLink, LocateFixed, Search, X } from 'lucide-react';
+import { cn } from '@/src/lib/utils';
 
-// Fix for Leaflet default icon issues in React
-// @ts-ignore
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+// Fix for Leaflet default icon issues in React/Vite
+// We'll use custom SVG icons for a more luxury look anyway
+const createCustomIcon = (number?: number, color: string = '#5A3E36') => {
+  return new L.DivIcon({
+    className: 'custom-div-icon',
+    html: `
+      <div class="relative flex items-center justify-center">
+        <div class="absolute w-8 h-8 bg-white/90 backdrop-blur-md rounded-full shadow-lg border-2 border-[${color}] flex items-center justify-center transition-all hover:scale-110">
+          ${number ? `<span class="text-[10px] font-bold" style="color: ${color}">${number}</span>` : `<div class="w-1.5 h-1.5 rounded-full" style="background-color: ${color}"></div>`}
+        </div>
+        <div class="absolute -bottom-1 w-2 h-2 bg-[${color}] rotate-45 rounded-sm"></div>
+      </div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 36],
+    popupAnchor: [0, -32],
+  });
+};
+
+const destinationIcon = new L.DivIcon({
+  className: 'custom-div-icon',
+  html: `
+    <div class="relative flex items-center justify-center">
+      <div class="w-10 h-10 bg-[#D4AF37] rounded-2xl shadow-xl flex items-center justify-center animate-bounce-slow border-2 border-white">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+      </div>
+    </div>
+  `,
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
 });
 
-interface LocationMarker {
-  id: string;
-  name: string;
-  description: string;
-  lat: number;
-  lng: number;
-}
-
-interface MapViewProps {
-  locations: string[]; // Location names to geocode
-  destination: string;
-  activities: { activity: string; description: string; location?: string }[];
-  onPointSelect?: (index: number) => void;
-  selectedId?: string | null;
-}
-
-// Component to handle map view updates and initialization
-function MapController({ 
-  center, 
-  zoom, 
-  markers, 
-  selectedMarker, 
-  recenterTrigger 
-}: { 
-  center: [number, number]; 
-  zoom: number; 
-  markers: LocationMarker[]; 
-  selectedMarker?: LocationMarker | null;
-  recenterTrigger: number;
-}) {
+// Helper component to handle "flyTo" and bounds
+function MapController({ center, zoom, bounds }: { center?: [number, number], zoom?: number, bounds?: L.LatLngBoundsExpression }) {
   const map = useMap();
   
   useEffect(() => {
-    // Force relayout when markers change or on mount
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 250);
-  }, [map, markers]);
-
-  useEffect(() => {
-    if (selectedMarker) {
-      map.setView([selectedMarker.lat, selectedMarker.lng], 15, { animate: true });
-    } else if (markers.length > 0) {
-      const bounds = L.latLngBounds(markers.map(m => [m.lat, m.lng]));
-      map.fitBounds(bounds, { padding: [50, 50], animate: true });
-    } else if (center[0] !== 0 || center[1] !== 0) {
-      map.setView(center, zoom, { animate: true });
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [50, 50], animate: true, duration: 1.5 });
+    } else if (center) {
+      map.flyTo(center, zoom || 13, { duration: 1.5 });
     }
-  }, [center, zoom, map, markers, selectedMarker, recenterTrigger]);
+  }, [center, zoom, bounds, map]);
 
   return null;
 }
 
-export default function MapView({ locations, destination, activities, onPointSelect, selectedId }: MapViewProps) {
-  const { t } = useTranslation();
-  const { theme } = useTheme();
-  const [markers, setMarkers] = useState<LocationMarker[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [center, setCenter] = useState<[number, number]>([10.8231, 106.6297]);
-  const [recenterCount, setRecenterCount] = useState(0);
+interface MapLocation {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  description?: string;
+  time?: string;
+}
 
-  const selectedMarker = markers.find(m => m.id === selectedId);
+interface MapViewProps {
+  locations: MapLocation[];
+  destination: string;
+  selectedId?: string | null;
+  onPointSelect?: (id: string | null) => void;
+  className?: string;
+}
 
-  const isPhiMode = typeof destination === 'string' && destination.trim().toLowerCase() === 'phi';
+export default function MapView({ locations, destination, selectedId, onPointSelect, className }: MapViewProps) {
+  const [mapType, setMapType] = useState<'light' | 'dark' | 'satellite'>('light');
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 
-  const handleRecenter = useCallback(() => {
-    setRecenterCount(prev => prev + 1);
-  }, []);
+  // Calculate bounds to show all markers
+  const bounds = useMemo(() => {
+    if (locations.length === 0) return null;
+    const latLngs = locations.map(l => [l.lat, l.lng] as L.LatLngExpression);
+    return L.latLngBounds(latLngs);
+  }, [locations]);
 
-  useEffect(() => {
-    const geocodeLocations = async () => {
-      setLoading(true);
-      
-      if (isPhiMode) {
-        // Just create some "Phi" markers around a center for the effect
-        const baseLat = 10.7626222;
-        const baseLng = 106.660172;
-        const phiMarkers: LocationMarker[] = Array.from({ length: 5 }, (_, i) => ({
-          id: `phi-${i}`,
-          name: "Phi",
-          description: "Phi đẹp trai thanh lịch vô địch khắp vũ trụ",
-          lat: baseLat + (Math.random() - 0.5) * 0.02,
-          lng: baseLng + (Math.random() - 0.5) * 0.02,
-        }));
-        setMarkers(phiMarkers);
-        setCenter([baseLat, baseLng]);
-        setLoading(false);
-        return;
-      }
+  const selectedLocation = useMemo(() => 
+    locations.find(l => l.id === selectedId),
+  [locations, selectedId]);
 
-      const newMarkers: LocationMarker[] = [];
-      
-      // Combine destination into queries for better accuracy
-      const queries = activities.map(act => ({
-        query: act.location ? `${act.location}, ${destination}` : `${act.activity}, ${destination}`,
-        name: act.activity,
-        description: act.description
-      }));
+  const handleCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        setUserLocation([position.coords.latitude, position.coords.longitude]);
+      });
+    }
+  };
 
-      // Fallback: search for just the destination if others fail
-      let destinationCoords: [number, number] | null = null;
-      try {
-        const destResponse = await fetch(
-          `/api/geocode?q=${encodeURIComponent(destination)}`
-        );
-        const destData = await destResponse.json();
-        if (destData && destData.length > 0) {
-          destinationCoords = [parseFloat(destData[0].lat), parseFloat(destData[0].lon)];
-          setCenter(destinationCoords);
-        }
-      } catch (e) {
-        console.error('Destination geocoding error:', e);
-      }
+  const openGoogleMaps = (lat: number, lng: number) => {
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+  };
 
-      for (let i = 0; i < queries.length; i++) {
-        const item = queries[i];
-        try {
-          const response = await fetch(
-            `/api/geocode?q=${encodeURIComponent(item.query)}`
-          );
-          const data = await response.json();
-          
-          if (data && data.length > 0) {
-            newMarkers.push({
-              id: `marker-${i}`,
-              name: item.name,
-              description: item.description,
-              lat: parseFloat(data[0].lat),
-              lng: parseFloat(data[0].lon)
-            });
-          }
-        } catch (error) {
-          console.error('Geocoding error:', error);
-        }
-        // Small delay to respect Nominatim usage policy (1 request per second is recommended)
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-
-      if (newMarkers.length > 0) {
-        setMarkers(newMarkers);
-        // Calculate center
-        const avgLat = newMarkers.reduce((sum, m) => sum + m.lat, 0) / newMarkers.length;
-        const avgLng = newMarkers.reduce((sum, m) => sum + m.lng, 0) / newMarkers.length;
-        setCenter([avgLat, avgLng]);
-      }
-      setLoading(false);
-    };
-
-    geocodeLocations();
-  }, [destination, activities]);
-
-  if (loading && markers.length === 0) {
-    return (
-      <div className="w-full h-[500px] bg-luxury-bg rounded-[56px] flex flex-col items-center justify-center border border-luxury-beige/20 relative overflow-hidden">
-        {/* Animated Skeleton Lines */}
-        <div className="absolute inset-0 opacity-10">
-          <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
-                <path d="M 80 0 L 0 0 0 80" fill="none" stroke="#5A3E36" strokeWidth="1"/>
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
-        </div>
-        <div className="relative z-10 flex flex-col items-center">
-          <Navigation className="text-luxury-cacao/40 animate-pulse mb-6" size={48} />
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.5em] text-luxury-cacao/60 animate-pulse">{t?.('itinerary.mappingCuration')}</p>
-            <div className="w-16 h-px bg-luxury-beige/40" />
-            <p className="text-[8px] text-luxury-cacao/30 font-medium uppercase tracking-[0.2em]">{destination}</p>
-          </div>
-        </div>
-        {/* Scanning effect */}
-        <motion.div 
-          animate={{ x: ['-100%', '100%'] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-          className="absolute inset-y-0 w-64 bg-gradient-to-r from-transparent via-luxury-beige/10 to-transparent skew-x-12"
-        />
-      </div>
-    );
-  }
+  // Polyline coordinates for the route
+  const routePath = useMemo(() => 
+    locations.map(l => [l.lat, l.lng] as [number, number]),
+  [locations]);
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="relative w-full h-[600px] rounded-[56px] overflow-hidden border border-luxury-beige/30 shadow-2xl group"
-    >
-      <MapContainer 
-        center={center} 
-        zoom={13} 
-        scrollWheelZoom={false}
-        className="w-full h-full z-10"
-        style={{ height: '100%', width: '100%' }}
-      >
-        <MapController 
-          center={center} 
-          zoom={12} 
-          markers={markers} 
-          selectedMarker={selectedMarker} 
-          recenterTrigger={recenterCount}
-        />
-        {/* Luxury-themed tiles - adaptive to theme */}
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url={theme === 'light' 
-            ? "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-            : "https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png"
-          }
-        />
-
-        {/* Path line between points - splitted into segments for interaction */}
-        {markers.map((marker, idx) => {
-          if (idx === markers.length - 1) return null;
-          const nextMarker = markers[idx + 1];
-          const isHighlighted = selectedId === marker.id || selectedId === nextMarker.id;
-          return (
-            <Polyline 
-              key={`segment-${idx}`}
-              positions={[
-                [marker.lat, marker.lng],
-                [nextMarker.lat, nextMarker.lng]
-              ]}
-              eventHandlers={{
-                click: () => onPointSelect?.(idx)
-              }}
-              pathOptions={{ 
-                color: isHighlighted ? '#A57C00' : '#5A3E36', 
-                weight: isHighlighted ? 8 : 6, 
-                dashArray: isHighlighted ? '0' : '10, 10', 
-                opacity: isHighlighted ? 0.8 : 0.3 
-              }}
+    <div className={cn(
+      "relative w-full transition-all duration-700 ease-in-out overflow-hidden group",
+      isExpanded ? "h-[80vh] rounded-[40px]" : "h-[500px] rounded-[56px]",
+      className
+    )}>
+      {/* Search Bar Overlay */}
+      <div className="absolute top-8 left-8 right-8 z-[1000] flex gap-4 pointer-events-none">
+        <div className="flex-1 max-w-md pointer-events-auto">
+          <div className="relative group/search">
+            <input 
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Tìm kiếm địa điểm..."
+              className="w-full bg-white/80 backdrop-blur-2xl border border-luxury-beige/30 rounded-3xl px-6 py-4 pl-14 text-sm shadow-2xl focus:outline-none focus:ring-2 ring-luxury-gold/20 transition-all placeholder:text-luxury-cacao/40"
             />
-          );
-        })}
-        
-        <MarkerClusterGroup
-          chunkedLoading
-          maxClusterRadius={40}
-          polygonOptions={{
-            fillColor: '#5A3E36',
-            color: '#5A3E36',
-            weight: 1,
-            opacity: 0.5,
-            fillOpacity: 0.1
-          }}
-        >
-          {markers.map((marker, idx) => {
-            const isSelected = selectedId === marker.id;
-            const customIcon = L.divIcon({
-              className: 'custom-div-icon',
-              html: `<div class="relative flex items-center justify-center">
-                      <div class="absolute w-10 h-10 bg-luxury-espresso ${isSelected ? 'scale-150 bg-luxury-gold' : 'scale-100'} rounded-full opacity-20 animate-ping"></div>
-                      <div class="relative w-8 h-8 ${isSelected ? 'w-10 h-10 bg-luxury-gold' : 'bg-luxury-espresso'} text-luxury-ivory rounded-full flex items-center justify-center shadow-lg border-2 border-luxury-ivory transition-all duration-300 transform ${isSelected ? 'scale-110 shadow-xl' : 'hover:scale-110'}">
-                        <span class="text-[10px] font-bold">${idx + 1}</span>
-                      </div>
-                    </div>`,
-              iconSize: [40, 40],
-              iconAnchor: [20, 20]
-            });
-
-            return (
-              <Marker 
-                key={marker.id} 
-                position={[marker.lat, marker.lng]}
-                icon={customIcon}
-                eventHandlers={{
-                  click: () => onPointSelect?.(idx)
-                }}
+            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-luxury-cacao/40 group-focus-within/search:text-luxury-gold transition-colors" size={18} />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                className="absolute right-6 top-1/2 -translate-y-1/2 text-luxury-cacao/40 hover:text-luxury-espresso"
               >
-                <Popup className="luxury-popup">
-                <div className="p-4 space-y-4 min-w-[240px]">
-                  <div className="flex items-center gap-3 text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.2em] opacity-60">
-                    <div className="w-1.5 h-1.5 bg-luxury-espresso rounded-full" />
-                    <span>{t?.('itinerary.activityPoint')}</span>
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-2 pointer-events-auto">
+          <button 
+            onClick={handleCurrentLocation}
+            className="w-14 h-14 bg-white/80 backdrop-blur-2xl border border-luxury-beige/30 rounded-2xl shadow-2xl flex items-center justify-center text-luxury-espresso hover:bg-luxury-gold hover:text-white transition-all duration-500"
+            title="Vị trí hiện tại"
+          >
+            <LocateFixed size={20} />
+          </button>
+          <button 
+            onClick={() => setIsExpanded(!isExpanded)}
+            className={cn(
+              "w-14 h-14 bg-white/80 backdrop-blur-2xl border border-luxury-beige/30 rounded-2xl shadow-2xl flex items-center justify-center text-luxury-espresso hover:bg-luxury-gold hover:text-white transition-all duration-500",
+              isExpanded && "bg-luxury-espresso text-white"
+            )}
+          >
+            <Maximize size={20} className={cn("transition-transform duration-500", isExpanded && "rotate-45")} />
+          </button>
+        </div>
+      </div>
+
+      {/* Map Content */}
+      <div className="w-full h-full relative z-0">
+        <MapContainer 
+          center={locations.length > 0 ? [locations[0].lat, locations[0].lng] : [21.0285, 105.8542]} 
+          zoom={13} 
+          style={{ height: '100%', width: '100%' }}
+          zoomControl={false}
+          scrollWheelZoom={true}
+          className="z-0"
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url={mapType === 'satellite' 
+              ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+              : mapType === 'dark'
+                ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+                : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+            }
+          />
+          
+          <ZoomControl position="bottomright" />
+          
+          <MapController 
+            center={selectedLocation ? [selectedLocation.lat, selectedLocation.lng] : undefined}
+            zoom={16}
+            bounds={!selectedId ? bounds || undefined : undefined}
+          />
+
+          {/* User Location Marker */}
+          {userLocation && (
+            <Marker position={userLocation} icon={new L.Icon({
+              iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+              shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+              iconSize: [25, 41],
+              iconAnchor: [12, 41],
+              popupAnchor: [1, -34],
+              shadowSize: [41, 41]
+            })}>
+              <Popup>Bạn đang ở đây</Popup>
+            </Marker>
+          )}
+
+          {/* Route Line */}
+          {routePath.length > 1 && (
+            <Polyline 
+              positions={routePath} 
+              pathOptions={{ 
+                color: '#D4AF37', 
+                weight: 4, 
+                opacity: 0.6, 
+                dashArray: '10, 15',
+                lineCap: 'round'
+              }} 
+            />
+          )}
+
+          {/* Markers */}
+          {locations.map((loc, idx) => (
+            <Marker 
+              key={loc.id} 
+              position={[loc.lat, loc.lng]} 
+              icon={createCustomIcon(idx + 1, selectedId === loc.id ? '#D4AF37' : '#5A3E36')}
+              eventHandlers={{
+                click: () => onPointSelect?.(loc.id),
+              }}
+            >
+              <Popup className="luxury-popup">
+                <div className="p-4 min-w-[200px]">
+                  <div className="flex justify-between items-start gap-4 mb-2">
+                    <div>
+                      <h4 className="text-sm font-bold text-luxury-espresso font-serif">{loc.name}</h4>
+                      {loc.time && <p className="text-[10px] text-luxury-gold font-bold uppercase tracking-widest mt-0.5">{loc.time}</p>}
+                    </div>
                   </div>
-                  <h4 className="text-xl font-serif font-bold text-luxury-espresso border-b border-luxury-beige/10 pb-3">
-                    {marker.name}
-                  </h4>
-                  <p className="text-sm text-luxury-espresso/70 leading-relaxed font-medium">
-                    {marker.description}
-                  </p>
-                  
-                  <div className="pt-2">
-                    <a 
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${marker.lat},${marker.lng}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center justify-center gap-3 w-full py-3 bg-luxury-espresso text-luxury-ivory rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-luxury-espresso/90 transition-all shadow-lg shadow-luxury-espresso/20"
+                  <p className="text-xs text-luxury-cacao/70 italic mb-4 leading-relaxed line-clamp-2">{loc.description}</p>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => openGoogleMaps(loc.lat, loc.lng)}
+                      className="flex-1 flex items-center justify-center gap-2 bg-luxury-espresso text-white py-2 rounded-xl text-[10px] font-bold hover:bg-luxury-gold transition-colors"
                     >
                       <Navigation size={12} />
-                      <span>{t?.('itinerary.getDirections')}</span>
-                    </a>
+                      Chỉ đường
+                    </button>
+                    <button 
+                      onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(loc.name + " " + destination)}`, '_blank')}
+                      className="w-10 h-10 flex items-center justify-center bg-luxury-beige/20 text-luxury-espresso rounded-xl hover:bg-luxury-beige/40 transition-colors"
+                    >
+                      <ExternalLink size={14} />
+                    </button>
                   </div>
                 </div>
               </Popup>
             </Marker>
-          );
-        })}
-        </MarkerClusterGroup>
-      </MapContainer>
+          ))}
+        </MapContainer>
+      </div>
 
-      {/* Map Overlay Controls */}
-      <div className="absolute top-8 left-8 z-20 flex flex-col gap-4">
-        <div className="bg-luxury-ivory/90 dark:bg-luxury-ivory/80 backdrop-blur-xl p-4 rounded-3xl shadow-xl border border-luxury-beige/30 flex items-center gap-4 transition-colors">
-          <div className="w-10 h-10 bg-luxury-espresso text-luxury-ivory rounded-2xl flex items-center justify-center">
-            <Navigation size={18} />
-          </div>
-          <div>
-            <p className="text-[8px] text-luxury-cacao uppercase font-bold tracking-[0.2em]">{t?.('itinerary.interactiveGuide')}</p>
-            <p className="font-serif font-bold text-sm text-luxury-espresso tracking-tight">{destination}</p>
-          </div>
-        </div>
-
-        <button 
-          onClick={handleRecenter}
-          className="bg-luxury-ivory/90 dark:bg-luxury-ivory/80 backdrop-blur-xl w-12 h-12 rounded-2xl shadow-xl border border-luxury-beige/30 flex items-center justify-center text-luxury-espresso hover:bg-luxury-espresso hover:text-luxury-ivory transition-all duration-300 group"
-          title={t?.('itinerary.recenterMap')}
-        >
-          <Maximize size={18} className="group-hover:scale-110 transition-transform" />
-        </button>
-
-        {selectedId && (
-          <motion.button 
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            onClick={() => onPointSelect?.(-1)}
-            className="bg-luxury-gold/90 backdrop-blur-xl w-12 h-12 rounded-2xl shadow-xl border border-luxury-gold/30 flex items-center justify-center text-white hover:bg-luxury-gold transition-all duration-300 group"
-            title={t?.('itinerary.clearSelection') || 'Bỏ chọn'}
+      {/* Layer Controls */}
+      <div className="absolute bottom-8 left-8 z-[1000] flex gap-2">
+        {(['light', 'dark', 'satellite'] as const).map((type) => (
+          <button
+            key={type}
+            onClick={() => setMapType(type)}
+            className={cn(
+              "px-4 py-2 bg-white/80 backdrop-blur-2xl border border-luxury-beige/30 rounded-xl shadow-2xl text-[10px] font-bold uppercase tracking-widest transition-all",
+              mapType === type ? "bg-luxury-gold text-white" : "text-luxury-espresso/60 hover:text-luxury-espresso"
+            )}
           >
-            <X size={18} className="group-hover:rotate-90 transition-transform" />
-          </motion.button>
-        )}
+            {type}
+          </button>
+        ))}
       </div>
 
-      <div className="absolute bottom-8 right-8 z-20">
-        <div className="bg-luxury-espresso text-luxury-ivory px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl text-[10px] font-bold uppercase tracking-[0.3em]">
-          <Info size={14} className="text-luxury-beige" />
-          <span>{markers.length} {t?.('itinerary.selectedPoints')}</span>
-        </div>
+      {/* Stats Overlay */}
+      <div className="absolute bottom-8 right-16 z-[1000] pointer-events-none">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-luxury-espresso/90 backdrop-blur-2xl px-6 py-4 rounded-3xl shadow-2xl border border-white/10 flex items-center gap-6"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-luxury-gold/20 flex items-center justify-center">
+              <MapPin size={18} className="text-luxury-gold" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-luxury-gold uppercase tracking-[0.2em] leading-none mb-1">Điểm đến</p>
+              <p className="text-sm font-serif font-bold text-white leading-none">{destination}</p>
+            </div>
+          </div>
+          <div className="w-px h-8 bg-white/10" />
+          <div className="text-right">
+            <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] leading-none mb-1">Tổng cộng</p>
+            <p className="text-sm font-mono font-bold text-luxury-gold leading-none">{locations.length} địa điểm</p>
+          </div>
+        </motion.div>
       </div>
-      
-      {/* Decorative inner shadow */}
-      <div className="absolute inset-0 pointer-events-none z-20 shadow-[inset_0_0_80px_rgba(90,62,54,0.1)] rounded-[56px]" />
-    </motion.div>
+    </div>
   );
 }
