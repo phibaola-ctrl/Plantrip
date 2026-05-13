@@ -1131,6 +1131,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                 locations={mapLocations} 
                 destination={itinerary.destination} 
                 selectedId={selectedMarkerId}
+                editingId={editingId}
                 onPointSelect={(id) => {
                   setHighlightedId(id);
                   if (id) {

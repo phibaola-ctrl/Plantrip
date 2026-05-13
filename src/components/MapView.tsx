@@ -8,15 +8,16 @@ import { cn } from '@/src/lib/utils';
 
 // Fix for Leaflet default icon issues in React/Vite
 // We'll use custom SVG icons for a more luxury look anyway
-const createCustomIcon = (number?: number, color: string = '#5A3E36') => {
+const createCustomIcon = (number?: number, color: string = '#5A3E36', isEditing?: boolean) => {
   return new L.DivIcon({
     className: 'custom-div-icon',
     html: `
       <div class="relative flex items-center justify-center">
-        <div class="absolute w-8 h-8 bg-white/90 backdrop-blur-md rounded-full shadow-lg border-2 border-[${color}] flex items-center justify-center transition-all hover:scale-110">
-          ${number ? `<span class="text-[10px] font-bold" style="color: ${color}">${number}</span>` : `<div class="w-1.5 h-1.5 rounded-full" style="background-color: ${color}"></div>`}
+        ${isEditing ? `<div class="absolute w-12 h-12 bg-amber-400/30 rounded-full animate-ping"></div>` : ''}
+        <div class="absolute w-8 h-8 bg-white/90 backdrop-blur-md rounded-full shadow-lg border-2 ${isEditing ? 'border-amber-500 scale-110' : `border-[${color}]`} flex items-center justify-center transition-all hover:scale-110 z-10">
+          ${number ? `<span class="text-[10px] font-bold" style="color: ${isEditing ? '#d97706' : color}">${number}</span>` : `<div class="w-1.5 h-1.5 rounded-full" style="background-color: ${color}"></div>`}
         </div>
-        <div class="absolute -bottom-1 w-2 h-2 bg-[${color}] rotate-45 rounded-sm"></div>
+        <div class="absolute -bottom-1 w-2 h-2 ${isEditing ? 'bg-amber-500' : `bg-[${color}]`} rotate-45 rounded-sm"></div>
       </div>
     `,
     iconSize: [32, 32],
@@ -66,11 +67,12 @@ interface MapViewProps {
   locations: MapLocation[];
   destination: string;
   selectedId?: string | null;
+  editingId?: string | null;
   onPointSelect?: (id: string | null) => void;
   className?: string;
 }
 
-export default function MapView({ locations, destination, selectedId, onPointSelect, className }: MapViewProps) {
+export default function MapView({ locations, destination, selectedId, editingId, onPointSelect, className }: MapViewProps) {
   const [mapType, setMapType] = useState<'light' | 'dark' | 'satellite'>('light');
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -214,7 +216,7 @@ export default function MapView({ locations, destination, selectedId, onPointSel
             <Marker 
               key={loc.id} 
               position={[loc.lat, loc.lng]} 
-              icon={createCustomIcon(idx + 1, selectedId === loc.id ? '#D4AF37' : '#5A3E36')}
+              icon={createCustomIcon(idx + 1, selectedId === loc.id ? '#D4AF37' : '#5A3E36', editingId === loc.id)}
               eventHandlers={{
                 click: () => onPointSelect?.(loc.id),
               }}
