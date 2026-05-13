@@ -27,10 +27,12 @@ const createCustomIcon = (number?: number, color: string = '#5A3E36', isEditing?
     html: `
       <div class="relative flex items-center justify-center">
         ${isEditing ? `<div class="absolute w-12 h-12 bg-amber-400/30 rounded-full animate-ping"></div>` : ''}
-        <div class="absolute w-8 h-8 bg-white/90 backdrop-blur-md rounded-full shadow-lg border-2 ${isEditing ? 'border-amber-500 scale-110' : `border-[${color}]`} flex items-center justify-center transition-all hover:scale-110 z-10">
+        <div class="absolute w-8 h-8 bg-white/90 backdrop-blur-md rounded-full shadow-lg border-2 ${isEditing ? 'border-amber-500 scale-110' : ''}" 
+             style="${!isEditing ? `border-color: ${color};` : ''} display: flex; align-items: center; justify-center; transition: all 0.3s; z-index: 10;">
           ${number ? `<span class="text-[10px] font-bold" style="color: ${isEditing ? '#d97706' : color}">${number}</span>` : `<div class="w-1.5 h-1.5 rounded-full" style="background-color: ${color}"></div>`}
         </div>
-        <div class="absolute -bottom-1 w-2 h-2 ${isEditing ? 'bg-amber-500' : `bg-[${color}]`} rotate-45 rounded-sm"></div>
+        <div class="absolute -bottom-1 w-2 h-2 ${isEditing ? 'bg-amber-500' : ''}" 
+             style="${!isEditing ? `background-color: ${color};` : ''} transform: rotate(45deg); border-radius: 2px;"></div>
       </div>
     `,
     iconSize: [32, 32],
