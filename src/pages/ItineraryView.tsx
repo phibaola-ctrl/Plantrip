@@ -36,21 +36,10 @@ import {
   Phone,
   MessageCircle
 } from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  Cell 
-} from 'recharts';
 import { Itinerary, Activity } from '@/src/types';
 import confetti from 'canvas-confetti';
 import { cn } from '@/src/lib/utils';
 import MapView from '@/src/components/MapView';
-import BudgetAnalyzer from '@/src/components/BudgetAnalyzer';
 
 interface ItineraryViewProps {
   itinerary: Itinerary;
@@ -378,13 +367,58 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
   }, []);
 
   const handleDownload = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(itinerary, null, 2));
+    let content = `PLANTRIPGO - CẨM NANG DU LỊCH ĐỘC BẢN\n`;
+    content += `==========================================\n\n`;
+    content += `ĐIỂM ĐẾN: ${itinerary.destination.toUpperCase()}\n`;
+    content += `THỜI GIAN: ${itinerary.duration} NGÀY\n`;
+    content += `PHONG CÁCH: ${itinerary.travelStyle.toUpperCase()}\n\n`;
+    content += `TỔNG QUAN: ${itinerary.summary}\n\n`;
+    content += `------------------------------------------\n`;
+    content += `LỊCH TRÌNH CHI TIẾT\n`;
+    content += `------------------------------------------\n\n`;
+
+    itinerary.days.forEach(day => {
+      content += `NGÀY ${day.day}\n`;
+      day.activities.forEach(act => {
+        content += `[${act.time}] ${act.activity}\n`;
+        content += `${act.description}\n`;
+        if (act.location) content += `Địa điểm: ${act.location}\n`;
+        content += `\n`;
+      });
+      content += `------------------------------------------\n\n`;
+    });
+
+    if (itinerary.tourIncludes && itinerary.tourIncludes.length > 0) {
+      content += `BAO GỒM:\n`;
+      itinerary.tourIncludes.forEach(item => content += `- ${item}\n`);
+      content += `\n`;
+    }
+
+    content += `NHẬN ĐỊNH TỪ CHUYÊN GIA:\n`;
+    itinerary.insights.forEach(insight => {
+        content += `- ${insight}\n`;
+    });
+    content += `\n`;
+
+    content += `LƯU Ý ĐIỂM ĐẾN:\n`;
+    itinerary.alerts.forEach(alert => {
+      content += `- ${alert}\n`;
+    });
+    content += `\n`;
+    
+    content += `==========================================\n`;
+    content += `Cảm ơn quý khách đã tin tưởng PLANTRIPGO.\n`;
+    content += `Chúc quý khách có một hành trình đáng nhớ!\n`;
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
     const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href",     dataStr);
-    downloadAnchorNode.setAttribute("download", `itinerary-${itinerary.destination.toLowerCase().replace(/\s+/g, '-')}.json`);
+    downloadAnchorNode.setAttribute("href",     url);
+    downloadAnchorNode.setAttribute("download", `Plantripgo-${itinerary.destination.toLowerCase().replace(/\s+/g, '-')}.txt`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -624,15 +658,12 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
         )}
       </AnimatePresence>
 
-      <BudgetAnalyzer itinerary={itinerary} />
-
       <div className="grid lg:grid-cols-12 gap-12">
         <div className="lg:col-span-8 space-y-24">
           {/* Timeline */}
           <div className="space-y-16">
             <div className="flex items-center justify-between border-b border-luxury-beige/30 pb-10">
               <h2 className="text-5xl font-serif font-bold text-luxury-espresso leading-[1.2]">{isPhiMode ? "Phi" : t('itinerary.timeline')}</h2>
-              <span className="text-[10px] font-bold text-luxury-cacao/40 uppercase tracking-[0.4em]">{isPhiMode ? "Phi" : t('itinerary.optimized')}</span>
             </div>
 
             <div className="space-y-32 relative">
@@ -1236,53 +1267,25 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
         </motion.div>
       )}
 
-      {/* Floating Actions */}
-      <div className="fixed bottom-6 right-6 md:bottom-10 md:right-10 z-[80] flex flex-col gap-3 md:gap-4 items-end">
-        <div className="flex flex-col gap-3 md:gap-4">
-          <motion.a
-            href="https://zalo.me/0862679235"
-            target="_blank"
-            rel="noopener noreferrer"
-            initial={{ scale: 0, x: 100 }}
-            animate={{ scale: 1, x: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            className="w-12 h-12 md:w-16 md:h-16 bg-[#0068ff] text-white rounded-full flex items-center justify-center shadow-2xl shadow-blue-500/40 hover:scale-110 active:scale-95 transition-all relative group"
-          >
-            <div className="absolute inset-0 rounded-full bg-blue-500 animate-pulse opacity-20 scale-125" />
-            <svg className="w-6 h-6 md:w-10 md:h-10 fill-current" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12c0 1.95.56 3.77 1.52 5.32L2.09 21.6c-.15.42.24.81.66.66l4.28-1.43C8.42 21.44 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm4.5 13.5c-.3 0-.6-.1-.8-.3-.2-.2-.3-.5-.3-.8s.1-.6.3-.8.5-.3.8-.3.7.1.9.3c.2.2.3.5.3.8s-.1.6-.3.8-.5.3-.9.3zm0-2c-.1 0-.2.05-.3.1s-.15.15-.2.2c-.05.05-.05.15-.05.25v.05c0 .1.01.2.05.3.05.15.15.2.2.25.1.05.2.1.3.1.1 0 .2-.05.3-.1s.15-.1.2-.25.05-.2.05-.3V15c0-.1-.01-.2-.05-.25-.05-.1-.15-.2-.2-.2s-.2-.05-.3-.05zM12 15.5c-.3 0-.6-.1-.8-.3-.2-.2-.3-.5-.3-.8s.1-.6.3-.8.5-.3.8-.3c.1 0 .2.01.4.05.15.05.25.15.3.3s.1.3.1.5c0 .3-.1.5-.3.7-.2.2-.4.3-.7.3.1 0 .2-.01.3-.01V15c.01 0 .01.01.01.01s.05.05.05.05h.05z" />
-            </svg>
-            <span className="absolute right-16 md:right-20 bg-luxury-espresso text-luxury-ivory px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl pointer-events-none">Zalo</span>
-          </motion.a>
-          <motion.a
-            href="tel:0862679235"
-            initial={{ scale: 0, x: 100 }}
-            animate={{ scale: 1, x: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.1 }}
-            className="w-12 h-12 md:w-16 md:h-16 bg-green-500 text-white rounded-full flex items-center justify-center shadow-2xl shadow-green-500/40 hover:scale-110 active:scale-95 transition-all relative group"
-          >
-            <div className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-10" />
-            <Phone size={20} className="md:w-7 md:h-7" />
-            <span className="absolute right-16 md:right-20 bg-luxury-espresso text-luxury-ivory px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl pointer-events-none">{t('itinerary.callNow')}</span>
-          </motion.a>
-          <motion.button
-            id="booking-toggle-button"
-            onClick={toggleBookingPanel}
-            initial={{ scale: 0, x: 100 }}
-            animate={{ scale: 1, x: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.2 }}
-            className="px-6 md:px-10 py-5 md:py-6 bg-luxury-espresso text-luxury-ivory rounded-full shadow-2xl shadow-luxury-espresso/40 hover:scale-105 active:scale-95 transition-all relative group overflow-hidden ring-4 ring-luxury-espresso/10"
-          >
-            <div className="absolute inset-0 rounded-full bg-luxury-espresso animate-pulse opacity-20 scale-125" />
-            <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 skew-x-12" />
-            <div className="flex items-center justify-center gap-3">
-              <Sparkles size={16} className="text-luxury-beige" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.4em] relative z-10">
-                {isSubmitting ? t('itinerary.processing') : isSuccess ? t('itinerary.success') : t('itinerary.bookNow')}
-              </span>
-            </div>
-          </motion.button>
-        </div>
+      {/* Floating Booking Button */}
+      <div className="fixed bottom-24 right-6 md:bottom-28 md:right-10 z-[80] flex flex-col items-end">
+        <motion.button
+          id="booking-toggle-button"
+          onClick={toggleBookingPanel}
+          initial={{ scale: 0, x: 100 }}
+          animate={{ scale: 1, x: 0 }}
+          transition={{ type: "spring", stiffness: 260, damping: 20 }}
+          className="px-6 md:px-10 py-5 md:py-6 bg-luxury-espresso text-luxury-ivory rounded-full shadow-2xl shadow-luxury-espresso/40 hover:scale-105 active:scale-95 transition-all relative group overflow-hidden ring-4 ring-luxury-espresso/10"
+        >
+          <div className="absolute inset-0 rounded-full bg-luxury-espresso animate-pulse opacity-20 scale-125" />
+          <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 skew-x-12" />
+          <div className="flex items-center justify-center gap-3">
+            <Sparkles size={16} className="text-luxury-beige" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.4em] relative z-10">
+              {isSubmitting ? t('itinerary.processing') : isSuccess ? t('itinerary.success') : t('itinerary.bookNow')}
+            </span>
+          </div>
+        </motion.button>
       </div>
 
     </div>

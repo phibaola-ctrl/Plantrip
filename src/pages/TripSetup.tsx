@@ -100,7 +100,7 @@ export default function TripSetup({ onSubmit, onBack }: TripSetupProps) {
               step >= s ? "bg-luxury-espresso" : "bg-luxury-beige/30"
             )} />
             <span className={cn(
-               "text-[9px] font-bold uppercase tracking-[0.3em] transition-opacity duration-700",
+               "text-[12px] font-bold uppercase tracking-[0.3em] transition-opacity duration-700",
                step === s ? "opacity-100 text-luxury-espresso" : "opacity-30 text-luxury-cacao"
             )}>
               {t(`setup.steps.${s as 1|2|3|4}`)}
@@ -120,12 +120,12 @@ export default function TripSetup({ onSubmit, onBack }: TripSetupProps) {
               className="space-y-16"
             >
               <div>
-                <h2 className="text-6xl font-serif font-bold mb-6 text-luxury-espresso leading-[1.2] tracking-tight">{t('setup.step1.title')}</h2>
+                <h2 className="text-7xl font-serif font-bold mb-6 text-luxury-espresso leading-[1.2] tracking-tight">{t('setup.step1.title')}</h2>
                 <p className="text-luxury-cacao/60 text-xl font-medium italic tracking-wide">{t('setup.step1.subtitle')}</p>
               </div>
               <div className="space-y-16">
                 <div className="relative group">
-                  <label className="block text-[10px] font-bold uppercase tracking-[0.4em] text-luxury-cacao/60 mb-6">{t('setup.step1.label')}</label>
+                  <label className="block text-[14px] font-bold uppercase tracking-[0.4em] text-luxury-cacao/60 mb-6">{t('setup.step1.label')}</label>
                   <input 
                     type="text"
                     value={prefs.destination}
@@ -137,7 +137,7 @@ export default function TripSetup({ onSubmit, onBack }: TripSetupProps) {
                   <div className="absolute bottom-0 left-0 h-px bg-luxury-espresso w-0 group-focus-within:w-full transition-all duration-1000" />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-[0.4em] text-luxury-cacao/60 mb-8">{t('setup.step1.daysLabel')}</label>
+                  <label className="block text-[14px] font-bold uppercase tracking-[0.4em] text-luxury-cacao/60 mb-8">{t('setup.step1.daysLabel')}</label>
                   <div className="flex items-center gap-12">
                     <button 
                       onClick={() => setPrefs(p => ({ ...p, days: Math.max(1, (p.days || 3) - 1) }))}
@@ -163,7 +163,7 @@ export default function TripSetup({ onSubmit, onBack }: TripSetupProps) {
               className="space-y-16"
             >
               <div>
-                <h2 className="text-6xl font-serif font-bold mb-6 text-luxury-espresso leading-[1.2] tracking-tight">{t('setup.step2.title')}</h2>
+                <h2 className="text-7xl font-serif font-bold mb-6 text-luxury-espresso leading-[1.2] tracking-tight">{t('setup.step2.title')}</h2>
                 <p className="text-luxury-cacao/60 text-xl font-medium italic">{t('setup.step2.subtitle')}</p>
               </div>
               <div className="grid grid-cols-2 gap-8">
@@ -200,7 +200,7 @@ export default function TripSetup({ onSubmit, onBack }: TripSetupProps) {
               className="space-y-16"
             >
               <div>
-                <h2 className="text-6xl font-serif font-bold mb-6 text-luxury-espresso leading-[1.2] tracking-tight">{t('setup.step3.title')}</h2>
+                <h2 className="text-7xl font-serif font-bold mb-6 text-luxury-espresso leading-[1.2] tracking-tight">{t('setup.step3.title')}</h2>
                 <p className="text-luxury-cacao/60 text-xl font-medium italic">{t('setup.step3.subtitle')}</p>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -221,7 +221,7 @@ export default function TripSetup({ onSubmit, onBack }: TripSetupProps) {
                     )}>
                       {i.icon}
                     </div>
-                    <span className="font-bold text-[10px] uppercase tracking-[0.2em] text-center leading-relaxed h-8 flex items-center">{i.label}</span>
+                    <span className="font-bold text-[12px] uppercase tracking-[0.2em] text-center leading-relaxed h-8 flex items-center">{i.label}</span>
                   </button>
                 ))}
               </div>
@@ -237,7 +237,7 @@ export default function TripSetup({ onSubmit, onBack }: TripSetupProps) {
               className="space-y-16"
             >
               <div>
-                <h2 className="text-6xl font-serif font-bold mb-6 text-luxury-espresso leading-[1.2] tracking-tight">{t('setup.step4.title')}</h2>
+                <h2 className="text-7xl font-serif font-bold mb-6 text-luxury-espresso leading-[1.2] tracking-tight">{t('setup.step4.title')}</h2>
                 <p className="text-luxury-cacao/60 text-xl font-medium italic tracking-wide">{t('setup.step4.subtitle')}</p>
               </div>
               <div className="space-y-8">

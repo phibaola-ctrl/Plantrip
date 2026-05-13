@@ -15,6 +15,7 @@ import ItineraryView from '@/src/pages/ItineraryView';
 import SavedTrips from '@/src/pages/SavedTrips';
 import EasterEggModal from '@/src/components/EasterEggModal';
 import Chatbot from '@/src/components/Chatbot';
+import SocialFloatingActions from '@/src/components/SocialFloatingActions';
 import { TripPreferences, Itinerary } from '@/src/types';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -411,6 +412,7 @@ export default function App() {
       )}
 
       <Chatbot />
+      {view === 'result' && <SocialFloatingActions />}
     </div>
   );
 }
