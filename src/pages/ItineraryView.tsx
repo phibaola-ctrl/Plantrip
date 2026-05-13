@@ -421,6 +421,19 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
     URL.revokeObjectURL(url);
   };
 
+  const selectedMarkerId = useMemo(() => {
+    if (!highlightedId) return null;
+    let flatIdx = -1;
+    let found = false;
+    itinerary.days.forEach((day, dIdx) => {
+      day.activities.forEach((_, aIdx) => {
+        if (!found) flatIdx++;
+        if (`${dIdx}-${aIdx}` === highlightedId) found = true;
+      });
+    });
+    return found ? `marker-${flatIdx}` : null;
+  }, [highlightedId, itinerary.days]);
+
   return (
     <div className={cn("max-w-7xl mx-auto px-6 md:px-8 py-20 md:py-40 space-y-20", isPhiMode && "phi-theme")}>
       {isPhiMode && (
@@ -703,21 +716,44 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                       const isEditing = editingId === id;
 
                       return (
-                        <div 
+                        <motion.div 
                           key={aIdx} 
                           id={`activity-${dIdx}-${aIdx}`}
+                          initial={false}
+                          animate={highlightedId === id ? {
+                            scale: 1.02,
+                            backgroundColor: 'rgba(216, 203, 190, 0.15)',
+                            boxShadow: '0 20px 40px rgba(90, 62, 54, 0.1)'
+                          } : {
+                            scale: 1,
+                            backgroundColor: 'rgba(216, 203, 190, 0)',
+                            boxShadow: '0 0px 0px rgba(90, 62, 54, 0)'
+                          }}
+                          transition={{ type: "spring", stiffness: 300, damping: 25 }}
                           className={cn(
-                            "flex gap-12 group transition-all duration-500 rounded-3xl p-4 -m-4",
-                            highlightedId === id && "bg-luxury-beige/20 ring-2 ring-luxury-espresso/10"
+                            "flex gap-12 group transition-all duration-500 rounded-[32px] p-6 -mx-6 relative overflow-hidden",
+                            highlightedId === id && "ring-2 ring-luxury-espresso/20"
                           )}
                         >
-                          <div className="w-24 pt-2 flex-shrink-0 text-right flex flex-col items-end gap-4">
-                            <span className="text-xs font-mono font-bold text-luxury-cacao/40 group-hover:text-luxury-espresso transition-colors">{act.time}</span>
+                          {highlightedId === id && (
+                            <motion.div 
+                              layoutId="highlight-shine"
+                              initial={{ x: '-100%' }}
+                              animate={{ x: '100%' }}
+                              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 pointer-events-none"
+                            />
+                          )}
+                          <div className="w-20 pt-2 flex-shrink-0 text-right flex flex-col items-end gap-5">
+                            <span className="text-[10px] font-mono font-bold tracking-widest text-luxury-cacao/40 group-hover:text-luxury-espresso transition-colors">{act.time}</span>
                             <button 
-                              onClick={() => toggleActivity(dIdx, aIdx)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleActivity(dIdx, aIdx);
+                              }}
                               className={cn(
-                                "p-2 rounded-full transition-all duration-500",
-                                isCompleted ? "bg-luxury-espresso text-luxury-ivory" : "bg-luxury-bg text-luxury-cacao/20 hover:text-luxury-espresso"
+                                "p-2.5 rounded-full transition-all duration-500 shadow-sm",
+                                isCompleted ? "bg-luxury-espresso text-luxury-ivory" : "bg-luxury-ivory/50 text-luxury-cacao/20 hover:text-luxury-espresso hover:bg-luxury-beige/20"
                               )}
                             >
                               {isCompleted ? <CheckCircle2 size={16} /> : <Circle size={16} />}
@@ -791,7 +827,29 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                                       </h4>
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
-                                      <div className="flex items-center gap-4">
+                                      <div className="flex items-center gap-3">
+                                        <motion.button 
+                                          whileHover={{ scale: 1.1, rotate: 5 }}
+                                          whileTap={{ scale: 0.9 }}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setHighlightedId(id);
+                                            // Scroll map into view
+                                            const mapEl = document.querySelector('.leaflet-container');
+                                            if (mapEl) {
+                                              mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                            }
+                                          }}
+                                          className={cn(
+                                            "w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-500 shadow-sm",
+                                            highlightedId === id 
+                                              ? "bg-luxury-gold text-white shadow-luxury-gold/20" 
+                                              : "bg-luxury-ivory text-luxury-cacao/40 hover:text-luxury-espresso hover:bg-luxury-beige/30"
+                                          )}
+                                          title={t('itinerary.showOnMap')}
+                                        >
+                                          <MapIcon size={16} />
+                                        </motion.button>
                                         <StarRating 
                                           rating={activityRatings[id] || 0} 
                                           onRate={(r) => handleRateActivity(dIdx, aIdx, r)} 
@@ -811,7 +869,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
                               </div>
                             )}
                           </div>
-                        </div>
+                        </motion.div>
                       );
                     })}
                   </div>
@@ -1089,31 +1147,35 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
               </div>
             </div>
             
-            <MapView 
-              locations={allLocations} 
-              destination={itinerary.destination} 
-              activities={allActivities} 
-              onPointSelect={(idx) => {
-                // Determine day index and activity index from flat allActivities list
-                let count = 0;
-                itinerary.days.forEach((day, dIdx) => {
-                  day.activities.forEach((_, aIdx) => {
-                    if (count === idx) {
-                      setHighlightedId(`${dIdx}-${aIdx}`);
-                      // Clear highlight after some time or on manual dismissal
-                      setTimeout(() => setHighlightedId(null), 5000);
-                      
-                      // Find element and scroll to it
-                      const el = document.getElementById(`activity-${dIdx}-${aIdx}`);
-                      if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              <MapView 
+                locations={allLocations} 
+                destination={itinerary.destination} 
+                activities={allActivities} 
+                selectedId={selectedMarkerId}
+                onPointSelect={(idx) => {
+                  if (idx === -1) {
+                    setHighlightedId(null);
+                    return;
+                  }
+                  // Determine day index and activity index from flat allActivities list
+                  let count = 0;
+                  itinerary.days.forEach((day, dIdx) => {
+                    day.activities.forEach((_, aIdx) => {
+                      if (count === idx) {
+                        const id = `${dIdx}-${aIdx}`;
+                        setHighlightedId(id);
+                        
+                        // Find element and scroll to it
+                        const el = document.getElementById(`activity-${dIdx}-${aIdx}`);
+                        if (el) {
+                          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
                       }
-                    }
-                    count++;
+                      count++;
+                    });
                   });
-                });
-              }}
-            />
+                }}
+              />
           </div>
         </div>
 

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapPin, Info, Navigation, Sun, Moon } from 'lucide-react';
+import { MapPin, Info, Navigation, Sun, Moon, Maximize, X } from 'lucide-react';
 import { useTheme } from '@/src/lib/ThemeContext';
 
 // Fix for Leaflet default icon issues in React
@@ -29,10 +30,23 @@ interface MapViewProps {
   destination: string;
   activities: { activity: string; description: string; location?: string }[];
   onPointSelect?: (index: number) => void;
+  selectedId?: string | null;
 }
 
 // Component to handle map view updates and initialization
-function MapController({ center, zoom, markers }: { center: [number, number]; zoom: number; markers: any[] }) {
+function MapController({ 
+  center, 
+  zoom, 
+  markers, 
+  selectedMarker, 
+  recenterTrigger 
+}: { 
+  center: [number, number]; 
+  zoom: number; 
+  markers: LocationMarker[]; 
+  selectedMarker?: LocationMarker | null;
+  recenterTrigger: number;
+}) {
   const map = useMap();
   
   useEffect(() => {
@@ -43,22 +57,34 @@ function MapController({ center, zoom, markers }: { center: [number, number]; zo
   }, [map, markers]);
 
   useEffect(() => {
-    if (center[0] !== 0 || center[1] !== 0) {
+    if (selectedMarker) {
+      map.setView([selectedMarker.lat, selectedMarker.lng], 15, { animate: true });
+    } else if (markers.length > 0) {
+      const bounds = L.latLngBounds(markers.map(m => [m.lat, m.lng]));
+      map.fitBounds(bounds, { padding: [50, 50], animate: true });
+    } else if (center[0] !== 0 || center[1] !== 0) {
       map.setView(center, zoom, { animate: true });
     }
-  }, [center, zoom, map]);
+  }, [center, zoom, map, markers, selectedMarker, recenterTrigger]);
 
   return null;
 }
 
-export default function MapView({ locations, destination, activities, onPointSelect }: MapViewProps) {
+export default function MapView({ locations, destination, activities, onPointSelect, selectedId }: MapViewProps) {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const [markers, setMarkers] = useState<LocationMarker[]>([]);
   const [loading, setLoading] = useState(true);
   const [center, setCenter] = useState<[number, number]>([10.8231, 106.6297]);
+  const [recenterCount, setRecenterCount] = useState(0);
+
+  const selectedMarker = markers.find(m => m.id === selectedId);
 
   const isPhiMode = typeof destination === 'string' && destination.trim().toLowerCase() === 'phi';
+
+  const handleRecenter = useCallback(() => {
+    setRecenterCount(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
     const geocodeLocations = async () => {
@@ -105,7 +131,8 @@ export default function MapView({ locations, destination, activities, onPointSel
         console.error('Destination geocoding error:', e);
       }
 
-      for (const item of queries) {
+      for (let i = 0; i < queries.length; i++) {
+        const item = queries[i];
         try {
           const response = await fetch(
             `/api/geocode?q=${encodeURIComponent(item.query)}`
@@ -114,7 +141,7 @@ export default function MapView({ locations, destination, activities, onPointSel
           
           if (data && data.length > 0) {
             newMarkers.push({
-              id: Math.random().toString(36).substr(2, 9),
+              id: `marker-${i}`,
               name: item.name,
               description: item.description,
               lat: parseFloat(data[0].lat),
@@ -186,7 +213,13 @@ export default function MapView({ locations, destination, activities, onPointSel
         className="w-full h-full z-10"
         style={{ height: '100%', width: '100%' }}
       >
-        <MapController center={center} zoom={12} markers={markers} />
+        <MapController 
+          center={center} 
+          zoom={12} 
+          markers={markers} 
+          selectedMarker={selectedMarker} 
+          recenterTrigger={recenterCount}
+        />
         {/* Luxury-themed tiles - adaptive to theme */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -200,6 +233,7 @@ export default function MapView({ locations, destination, activities, onPointSel
         {markers.map((marker, idx) => {
           if (idx === markers.length - 1) return null;
           const nextMarker = markers[idx + 1];
+          const isHighlighted = selectedId === marker.id || selectedId === nextMarker.id;
           return (
             <Polyline 
               key={`segment-${idx}`}
@@ -211,51 +245,79 @@ export default function MapView({ locations, destination, activities, onPointSel
                 click: () => onPointSelect?.(idx)
               }}
               pathOptions={{ 
-                color: '#5A3E36', 
-                weight: 6, 
-                dashArray: '10, 10', 
-                opacity: 0.3 
+                color: isHighlighted ? '#A57C00' : '#5A3E36', 
+                weight: isHighlighted ? 8 : 6, 
+                dashArray: isHighlighted ? '0' : '10, 10', 
+                opacity: isHighlighted ? 0.8 : 0.3 
               }}
             />
           );
         })}
         
-        {markers.map((marker, idx) => (
-          <Marker 
-            key={marker.id} 
-            position={[marker.lat, marker.lng]}
-            eventHandlers={{
-              click: () => onPointSelect?.(idx)
-            }}
-          >
-            <Popup className="luxury-popup">
-              <div className="p-4 space-y-4 min-w-[240px]">
-                <div className="flex items-center gap-3 text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.2em] opacity-60">
-                  <div className="w-1.5 h-1.5 bg-luxury-espresso rounded-full" />
-                  <span>{t?.('itinerary.activityPoint')}</span>
+        <MarkerClusterGroup
+          chunkedLoading
+          maxClusterRadius={40}
+          polygonOptions={{
+            fillColor: '#5A3E36',
+            color: '#5A3E36',
+            weight: 1,
+            opacity: 0.5,
+            fillOpacity: 0.1
+          }}
+        >
+          {markers.map((marker, idx) => {
+            const isSelected = selectedId === marker.id;
+            const customIcon = L.divIcon({
+              className: 'custom-div-icon',
+              html: `<div class="relative flex items-center justify-center">
+                      <div class="absolute w-10 h-10 bg-luxury-espresso ${isSelected ? 'scale-150 bg-luxury-gold' : 'scale-100'} rounded-full opacity-20 animate-ping"></div>
+                      <div class="relative w-8 h-8 ${isSelected ? 'w-10 h-10 bg-luxury-gold' : 'bg-luxury-espresso'} text-luxury-ivory rounded-full flex items-center justify-center shadow-lg border-2 border-luxury-ivory transition-all duration-300 transform ${isSelected ? 'scale-110 shadow-xl' : 'hover:scale-110'}">
+                        <span class="text-[10px] font-bold">${idx + 1}</span>
+                      </div>
+                    </div>`,
+              iconSize: [40, 40],
+              iconAnchor: [20, 20]
+            });
+
+            return (
+              <Marker 
+                key={marker.id} 
+                position={[marker.lat, marker.lng]}
+                icon={customIcon}
+                eventHandlers={{
+                  click: () => onPointSelect?.(idx)
+                }}
+              >
+                <Popup className="luxury-popup">
+                <div className="p-4 space-y-4 min-w-[240px]">
+                  <div className="flex items-center gap-3 text-[10px] font-bold text-luxury-cacao uppercase tracking-[0.2em] opacity-60">
+                    <div className="w-1.5 h-1.5 bg-luxury-espresso rounded-full" />
+                    <span>{t?.('itinerary.activityPoint')}</span>
+                  </div>
+                  <h4 className="text-xl font-serif font-bold text-luxury-espresso border-b border-luxury-beige/10 pb-3">
+                    {marker.name}
+                  </h4>
+                  <p className="text-sm text-luxury-espresso/70 leading-relaxed font-medium">
+                    {marker.description}
+                  </p>
+                  
+                  <div className="pt-2">
+                    <a 
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${marker.lat},${marker.lng}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-3 w-full py-3 bg-luxury-espresso text-luxury-ivory rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-luxury-espresso/90 transition-all shadow-lg shadow-luxury-espresso/20"
+                    >
+                      <Navigation size={12} />
+                      <span>{t?.('itinerary.getDirections')}</span>
+                    </a>
+                  </div>
                 </div>
-                <h4 className="text-xl font-serif font-bold text-luxury-espresso border-b border-luxury-beige/10 pb-3">
-                  {marker.name}
-                </h4>
-                <p className="text-sm text-luxury-espresso/70 leading-relaxed font-medium">
-                  {marker.description}
-                </p>
-                
-                <div className="pt-2">
-                  <a 
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${marker.lat},${marker.lng}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-center gap-3 w-full py-3 bg-luxury-espresso text-luxury-ivory rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-luxury-espresso/90 transition-all shadow-lg shadow-luxury-espresso/20"
-                  >
-                    <Navigation size={12} />
-                    <span>{t?.('itinerary.getDirections')}</span>
-                  </a>
-                </div>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+              </Popup>
+            </Marker>
+          );
+        })}
+        </MarkerClusterGroup>
       </MapContainer>
 
       {/* Map Overlay Controls */}
@@ -271,12 +333,24 @@ export default function MapView({ locations, destination, activities, onPointSel
         </div>
 
         <button 
-          onClick={() => setCenter([...center])}
+          onClick={handleRecenter}
           className="bg-luxury-ivory/90 dark:bg-luxury-ivory/80 backdrop-blur-xl w-12 h-12 rounded-2xl shadow-xl border border-luxury-beige/30 flex items-center justify-center text-luxury-espresso hover:bg-luxury-espresso hover:text-luxury-ivory transition-all duration-300 group"
           title={t?.('itinerary.recenterMap')}
         >
-          <MapPin size={18} className="group-hover:scale-110 transition-transform" />
+          <Maximize size={18} className="group-hover:scale-110 transition-transform" />
         </button>
+
+        {selectedId && (
+          <motion.button 
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            onClick={() => onPointSelect?.(-1)}
+            className="bg-luxury-gold/90 backdrop-blur-xl w-12 h-12 rounded-2xl shadow-xl border border-luxury-gold/30 flex items-center justify-center text-white hover:bg-luxury-gold transition-all duration-300 group"
+            title={t?.('itinerary.clearSelection') || 'Bỏ chọn'}
+          >
+            <X size={18} className="group-hover:rotate-90 transition-transform" />
+          </motion.button>
+        )}
       </div>
 
       <div className="absolute bottom-8 right-8 z-20">

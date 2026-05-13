@@ -149,7 +149,7 @@ const Chatbot: React.FC = () => {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="mb-4 w-[350px] md:w-[400px] h-[500px] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto border border-luxury-beige/20"
+            className="mb-4 w-[350px] md:w-[400px] h-[500px] bg-luxury-ivory rounded-2xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto border border-luxury-beige/20"
           >
             {/* Header */}
             <div className="bg-luxury-espresso p-4 flex items-center justify-between">
@@ -158,27 +158,27 @@ const Chatbot: React.FC = () => {
                   <Sparkles size={16} className="text-luxury-espresso" />
                 </div>
                 <div>
-                  <h3 className="text-white font-serif font-bold text-sm leading-none tracking-wide">{t('chatbot.title')}</h3>
-                  <p className="text-luxury-gold/60 text-[9px] font-bold uppercase tracking-widest mt-1">PLANTRIPGO Edition</p>
+                  <h3 className="text-luxury-ivory font-serif font-bold text-sm leading-none tracking-wide">{t('chatbot.title')}</h3>
+                  <p className="text-luxury-gold/80 text-[9px] font-bold uppercase tracking-widest mt-1">PLANTRIPGO Edition</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={handleClearChat}
                   title={t('chatbot.clearChat')}
-                  className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-white/60 hover:text-white"
+                  className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-luxury-ivory/60 hover:text-luxury-ivory"
                 >
                   <Trash2 size={16} />
                 </button>
                 <button 
                   onClick={() => setIsOpen(false)}
-                  className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-white/60 hover:text-white"
+                  className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-luxury-ivory/60 hover:text-luxury-ivory"
                 >
                   <Minus size={16} />
                 </button>
                 <button 
                   onClick={() => setIsOpen(false)}
-                  className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-white/60 hover:text-white"
+                  className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-luxury-ivory/60 hover:text-luxury-ivory"
                 >
                   <X size={16} />
                 </button>
@@ -199,8 +199,8 @@ const Chatbot: React.FC = () => {
                 >
                   <div className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed ${
                     msg.role === 'user' 
-                      ? 'bg-luxury-espresso text-white rounded-tr-none' 
-                      : 'bg-white text-luxury-espresso border border-luxury-beige/20 shadow-sm rounded-tl-none'
+                      ? 'bg-luxury-espresso text-luxury-ivory rounded-tr-none' 
+                      : 'bg-luxury-beige/10 text-luxury-espresso border border-luxury-beige/20 shadow-sm rounded-tl-none'
                   }`}>
                     {msg.text}
                   </div>
@@ -239,7 +239,7 @@ const Chatbot: React.FC = () => {
                     <button
                       key={i}
                       onClick={() => handleSendMessage(q)}
-                      className="whitespace-nowrap px-3 py-1.5 bg-white border border-luxury-beige/30 rounded-full text-[10px] font-bold text-luxury-espresso/60 hover:bg-luxury-espresso hover:text-white hover:border-luxury-espresso transition-all"
+                      className="whitespace-nowrap px-3 py-1.5 bg-luxury-ivory border border-luxury-beige/30 rounded-full text-[10px] font-bold text-luxury-espresso/60 hover:bg-luxury-espresso hover:text-luxury-ivory hover:border-luxury-espresso transition-all"
                     >
                       {q}
                     </button>
@@ -249,7 +249,7 @@ const Chatbot: React.FC = () => {
             )}
 
             {/* Input */}
-            <div className="p-4 bg-white border-t border-luxury-beige/10">
+            <div className="p-4 bg-luxury-ivory border-t border-luxury-beige/10">
               <form 
                 onSubmit={(e) => {
                   e.preventDefault();
