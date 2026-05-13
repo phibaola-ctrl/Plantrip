@@ -66,29 +66,57 @@ async function startServer() {
     }
   });
 
-  // Geocoding Proxy
+  // Simple in-memory cache for geocoding
+  const geocodeCache = new Map<string, any>();
+
+  // Geocoding Proxy with cache and retry
   app.get("/api/geocode", async (req, res) => {
     const { q } = req.query;
-    if (!q) {
+    if (!q || typeof q !== 'string') {
       return res.status(400).json({ error: "Query parameter 'q' is required" });
     }
 
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q as string)}&limit=1`,
-        {
-          headers: {
-            "User-Agent": "PlanTripGo/1.0 (phiduutdeet@gmail.com)",
-            "Accept-Language": "en",
-          },
+    // Check cache first
+    if (geocodeCache.has(q)) {
+      return res.json(geocodeCache.get(q));
+    }
+
+    const fetchWithRetry = async (query: string, retries = 3, delay = 1000): Promise<any> => {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+          {
+            headers: {
+              "User-Agent": "PlanTripGo/1.1 (phiduutdeet@gmail.com)",
+              "Accept-Language": "en",
+            },
+          }
+        );
+
+        if (response.status === 429 && retries > 0) {
+          console.log(`429 encountered for "${query}", retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return fetchWithRetry(query, retries - 1, delay * 2);
         }
-      );
 
-      if (!response.ok) {
-        throw new Error(`Nominatim error: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+          throw new Error(`Nominatim error: ${response.status} ${response.statusText}`);
+        }
+
+        return await response.json();
+      } catch (error) {
+        if (retries > 0) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return fetchWithRetry(query, retries - 1, delay * 2);
+        }
+        throw error;
       }
+    };
 
-      const data = await response.json();
+    try {
+      const data = await fetchWithRetry(q);
+      // Cache the result
+      geocodeCache.set(q, data);
       res.json(data);
     } catch (error: any) {
       console.error("Geocoding proxy error:", error);

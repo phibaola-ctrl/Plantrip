@@ -319,7 +319,7 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
       setIsLoadingCoords(true);
       const locs: GeoLocation[] = [];
       
-      // Process activities in chunks to respect Nominatim usage policy
+      // Process activities with a small delay to respect Nominatim usage policy
       for (const act of allActivities) {
         const query = act.location ? `${act.location}, ${itinerary.destination}` : `${act.activity}, ${itinerary.destination}`;
         const coords = await geocodeLocation(query);
@@ -333,6 +333,8 @@ export default function ItineraryView({ itinerary: initialItinerary, onRestart }
             time: act.time
           });
         }
+        // Small delay between requests
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
       
       setMapLocations(locs);
